@@ -33,6 +33,7 @@ function cleanup()
 
 function purge()
 {
+  cleanup
   zypper -n rm `rpm -qa|grep -e crowbar -e chef -e rubygem -e susecloud` couchdb createrepo erlang rabbitmq-server sleshammer yum-common bind bind-chrootenv dhcp-server
   rm -rf /opt/dell /var/log/{rabbitmq,nodes,crowbar,couchdb,chef,barclamps} /var/lib/{chef,couchdb,crowbar,dhcp,named,rabbitmq} /var/cache/chef /var/run/{chef,crowbar,named,rabbitmq} /var/chef /etc/sysconfig/{dhcpd,named,rabbitmq-server} /etc/{bind,chef,dhcp3,crowbar}
   echo "you need to manually restore /etc/resolv.conf"
