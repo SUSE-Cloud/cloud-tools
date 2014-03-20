@@ -7,14 +7,29 @@
 # Authors: {bwiedemann,jdsn}@suse.de
 #
 
-BFILES="etc/chef tftpboot/validation.pem var/lib/couchdb/chef.couch etc/crowbar"
+CHEFFILES="etc/chef var/lib/couchdb/chef.couch"
+CROWBARFILES="etc/crowbar var/lib/crowbar"
+TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/discovery srv/tftpboot/nodes"
+ROOTFILES="root/.chef root/.ssh root/.gnupg"
+BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES"
+
+EXCLUDEFILES="srv/tftpboot/discovery/initrd0.img  srv/tftpboot/discovery/vmlinuz0 var/lib/crowbar/cache"
+XFILES=""
+for X in $EXCLUDEFILES ; do
+  XFILES="--exclude $X $XFILES"
+done
 
 function backup()
 {
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
+  rccouchdb stop
+
   cd /
   echo "backing up to $FILE..."
-  tar -czf "$FILE" $BFILES
+  tar -czf "$FILE" $XFILES $BFILES
+
+  rccouchdb start
+  rcchef-server restart
 }
 
 # to be used on an already deployed crowbar
