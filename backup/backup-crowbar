@@ -37,7 +37,7 @@ function cleanup()
 {
   cd /
   for service in crowbar chef-{server,solr,expander,client} couchdb apache2 named dhcpd xinetd rabbitmq-server ; do
-    /etc/init.d/$service stop
+    [ -e /etc/init.d/$service ] && /etc/init.d/$service stop
   done
   killall epmd # part of rabbitmq
   killall looper_chef_client.sh
@@ -51,6 +51,7 @@ function purge()
   cleanup
   zypper -n rm `rpm -qa|grep -e crowbar -e chef -e rubygem -e susecloud` couchdb createrepo erlang rabbitmq-server sleshammer yum-common bind bind-chrootenv dhcp-server tftp
   rm -rf /opt/dell /var/log/{rabbitmq,nodes,crowbar,couchdb,chef,barclamps} /var/lib/{chef,couchdb,crowbar,dhcp,named,rabbitmq} /var/cache/chef /var/run/{chef,crowbar,named,rabbitmq} /var/chef /etc/sysconfig/{dhcpd,named,rabbitmq-server} /etc/{bind,chef,dhcp3,crowbar}
+  killall epmd # need to kill again after uninstall
   echo "you need to manually restore /etc/resolv.conf"
 }
 
@@ -63,8 +64,19 @@ function restore_files()
 
 function restore()
 {
+  zypper -n install -l -t pattern cloud_admin
   restore_files
-  install-suse-cloud --verbose
+  screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
+  n=300
+  while [ $n -gt 0 ] && [ ! -e /tmp/chef-ready ] ; do
+    n=$(expr $n - 1)
+    sleep 5;
+    echo -n .
+  done
+  if [ $n = 0 ] ; then
+    echo "timed out waiting for chef-ready"
+    exit 83
+  fi
   rccouchdb stop
   restore_files
   rccouchdb start
