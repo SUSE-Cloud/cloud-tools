@@ -9,11 +9,11 @@
 
 CHEFFILES="etc/chef var/lib/couchdb/chef.couch"
 CROWBARFILES="etc/crowbar var/lib/crowbar"
-TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/discovery srv/tftpboot/nodes"
+TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
 BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES"
 
-EXCLUDEFILES="srv/tftpboot/discovery/initrd0.img  srv/tftpboot/discovery/vmlinuz0 var/lib/crowbar/cache"
+EXCLUDEFILES="var/lib/crowbar/cache"
 XFILES=""
 for X in $EXCLUDEFILES ; do
   XFILES="--exclude $X $XFILES"
