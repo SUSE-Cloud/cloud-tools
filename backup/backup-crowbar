@@ -24,9 +24,10 @@ function backup()
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
   rccouchdb stop
 
-  cd /
+  pushd / >/dev/null
   echo "backing up to $FILE..."
   tar -czf "$FILE" $XFILES $BFILES
+  popd
 
   rccouchdb start
   rcchef-server restart
@@ -35,7 +36,7 @@ function backup()
 # to be used on an already deployed crowbar
 function cleanup()
 {
-  cd /
+  pushd / >/dev/null
   for service in crowbar chef-{server,solr,expander,client} couchdb apache2 named dhcpd xinetd rabbitmq-server ; do
     [ -e /etc/init.d/$service ] && /etc/init.d/$service stop
   done
@@ -44,6 +45,7 @@ function cleanup()
   LOGS=var/log/{crowbar,chef,couchdb,apache2}
   DEPLOYED="var/lib/chef etc/bind etc/dhcp3 etc/xinetd.d/tftp /srv/tftpboot/discovery/pxelinux.cfg/*"
   rm -rf $BFILES $LOGS $DEPLOYED
+  popd
 }
 
 function purge()
@@ -57,9 +59,10 @@ function purge()
 
 function restore_files()
 {
-  cd /
+  pushd / >/dev/null
   echo "restoring from $FILE..."
   tar -xf "$FILE"
+  popd
 }
 
 function restore()
