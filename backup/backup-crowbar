@@ -101,6 +101,8 @@ function restore()
   restore_files
   rccouchdb start
   sleep 20 # wait for couchdb before restarting chef-server
+  rcchef-expander restart
+  rcchef-solr restart
   rcchef-server restart
   chef-client
 }
