@@ -65,8 +65,24 @@ function restore_files()
   popd >/dev/null
 }
 
+function check_resolv_conf
+{
+  for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
+    if ! netcat -z $ns 53 ; then
+      echo "Error: Nameserver '$ns' is not available. Please reconfigure /etc/resolv.conf manually."
+      exit 1
+    fi
+    if ! ping -c1 turing.suse.de ; then
+      echo "Error: Nameserver '$ns' can not resolve or ping turing.suse.de. Please reconfigure /etc/resolv.conf manually"
+      exit 1
+    fi
+  done
+}
+
+
 function restore()
 {
+  check_resolv_conf
   zypper -n install -l -t pattern cloud_admin
   restore_files
   screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
