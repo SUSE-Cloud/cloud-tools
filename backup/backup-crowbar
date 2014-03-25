@@ -84,6 +84,7 @@ function restore()
   rccouchdb stop
   restore_files
   rccouchdb start
+  sleep 20 # wait for couchdb before restarting chef-server
   rcchef-server restart
   chef-client
 }
