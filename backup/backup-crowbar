@@ -92,6 +92,7 @@ function rabbitmq_get_password()
 
 function reconfigure_rabbitmq()
 {
+  # copied from install-suse-cloud
   # cleanup rabbitmq
   rabbitmqctl delete_user chef
 
@@ -114,6 +115,8 @@ function restore()
   check_resolv_conf
   zypper -n install -l -t pattern cloud_admin
   restore_files
+  echo -n "Waiting for install-suse-cloud to finish:"
+  # copied from qa_crowbarsetup
   screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
   sleep 2 # need to wait for initial deletion of chef-ready
   n=300
@@ -144,6 +147,7 @@ function restore()
   raketasks="db:migrate"
   # only cleanup migrations if the sessions migration does not exist
   if ! ls /opt/dell/crowbar_framework/db/migrate/ 2>/dev/null | grep -q ".*_create_sessions.rb" ; then
+    # copied from install-suse-cloud
     rm -rf /opt/dell/crowbar_framework/db/migrate
     rm -f /opt/dell/crowbar_framework/db/{production.sqlite3,schema.rb}
     raketasks="db:sessions:create $raketasks"
