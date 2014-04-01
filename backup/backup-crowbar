@@ -7,7 +7,7 @@
 # Authors: {bwiedemann,jdsn}@suse.de
 #
 
-CHEFFILES="etc/chef var/lib/couchdb/chef.couch"
+CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
 CROWBARFILES="etc/crowbar var/lib/crowbar"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
@@ -134,7 +134,32 @@ function restore()
   rcchef-expander restart
   rcchef-solr restart
   rcchef-server restart
+  knife client delete crowbar --yes
+
+  # need to install the barclamps again in order to create the navigation.rb
+  # which is missing after this restore
+  /opt/dell/bin/barclamp_install.rb --rpm /opt/dell/barclamps/crowbar/
+  # for some reason some files are owned by root
+  chown -R crowbar:crowbar /opt/dell/crowbar_framework/config
+  raketasks="db:migrate"
+  # only cleanup migrations if the sessions migration does not exist
+  if ! ls /opt/dell/crowbar_framework/db/migrate/ 2>/dev/null | grep -q ".*_create_sessions.rb" ; then
+    rm -rf /opt/dell/crowbar_framework/db/migrate
+    rm -f /opt/dell/crowbar_framework/db/{production.sqlite3,schema.rb}
+    raketasks="db:sessions:create $raketasks"
+  fi
+  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production rake $raketasks"
+
   chef-client
+  rccrowbar start
+  sleep 20
+
+  # check if crowbar is accessible
+  if ! curl -m 59 -s --digest --user crowbar:crowbar localhost:3000 | grep -q /nodes/crowbar ; then
+    echo "Error: Could not connect to Crowbar."
+    echo "       Please see /var/log/crowbar/production.log for details."
+    exit 1
+  fi
 }
 
 function help()
