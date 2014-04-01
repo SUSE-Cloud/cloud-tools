@@ -79,6 +79,35 @@ function check_resolv_conf
   done
 }
 
+function rabbitmq_get_password()
+{
+  RABBITPW=`grep --no-filename "^\s*amqp_pass" /etc/chef/{server,solr}.rb | sed -e "s/\s*amqp_pass \"\([^\"]\+\)\"/\1/" | sort | uniq`
+  if [ `printf "%s\n" $RABBITPW | wc -l` = 1 ] ; then
+    #rabbitmqctl change_password chef $RABBITPW
+    echo -n "$RABBITPW"
+  else
+    echo -n ""
+  fi
+}
+
+function reconfigure_rabbitmq()
+{
+  # cleanup rabbitmq
+  rabbitmqctl delete_user chef
+
+  # get the original rabbitmq chef password
+  rabbit_chef_password=`rabbitmq_get_password`
+  # if empty create a new one
+  if [ -z "$rabbit_chef_password" ] ; then
+    rabbit_chef_password=$( dd if=/dev/urandom count=1 bs=16 2>/dev/null | base64 | tr -d / )
+    # write rabbitmq password to /etc/chef/server.rb and solr.rb
+    sed -i "s/^\s*amqp_pass .*/amqp_pass \"$rabbit_chef_password\"/" /etc/chef/{server,solr}.rb
+  fi
+
+  # create new chef user with proper password in rabbitmq
+  rabbitmqctl add_user chef "$rabbit_chef_password"
+  rabbitmqctl set_permissions -p /chef chef ".*" ".*" ".*"
+}
 
 function restore()
 {
@@ -99,6 +128,7 @@ function restore()
   fi
   rccouchdb stop
   restore_files
+  reconfigure_rabbitmq
   rccouchdb start
   sleep 20 # wait for couchdb before restarting chef-server
   rcchef-expander restart
