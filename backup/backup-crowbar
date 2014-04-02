@@ -8,7 +8,7 @@
 #
 
 CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
-CROWBARFILES="etc/crowbar var/lib/crowbar"
+CROWBARFILES="etc/crowbar var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
 BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES"
@@ -137,7 +137,6 @@ function restore()
   rcchef-expander restart
   rcchef-solr restart
   rcchef-server restart
-  knife client delete crowbar --yes
 
   # need to install the barclamps again in order to create the navigation.rb
   # which is missing after this restore
