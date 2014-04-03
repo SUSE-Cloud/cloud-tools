@@ -11,7 +11,7 @@ CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
 CROWBARFILES="etc/crowbar var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
-BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES"
+BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES etc/resolv.conf.forwarders"
 
 EXCLUDEFILES="var/lib/crowbar/cache"
 XFILES=""
@@ -22,6 +22,12 @@ done
 function backup()
 {
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
+  # create a temporary resolv.conf
+  cp -a /etc/resolv.conf{,.forwarders}
+  sed -i -e "/^\s*nameserver/d" /etc/resolv.conf.forwarders
+  for ns in `perl -ne 'BEGIN{$/=undef}; m/forwarders\s*{([0-9:;\[\]\.\s]+)}/; $f=$1||""; $f=~s/\s*//g; foreach $fw (split(";",$f)){print "$fw\n"}' /etc/bind/named.conf`; do
+    echo "nameserver $ns" >> /etc/resolv.conf.forwarders
+  done
   rccouchdb stop
 
   pushd / >/dev/null
@@ -54,14 +60,13 @@ function purge()
   zypper -n rm `rpm -qa|grep -e crowbar -e chef -e rubygem -e susecloud` couchdb createrepo erlang rabbitmq-server sleshammer yum-common bind bind-chrootenv dhcp-server tftp
   rm -rf /opt/dell /var/log/{rabbitmq,nodes,crowbar,couchdb,chef,barclamps} /var/lib/{chef,couchdb,crowbar,dhcp,named,rabbitmq} /var/cache/chef /var/run/{chef,crowbar,named,rabbitmq} /var/chef /etc/sysconfig/{dhcpd,named,rabbitmq-server} /etc/{bind,chef,dhcp3,crowbar}
   killall epmd # need to kill again after uninstall
-  echo "you need to manually restore /etc/resolv.conf"
 }
 
 function restore_files()
 {
   pushd / >/dev/null
   echo "restoring from $FILE..."
-  tar -xf "$FILE"
+  tar -xf "$FILE" $@
   popd >/dev/null
 }
 
@@ -112,6 +117,10 @@ function reconfigure_rabbitmq()
 
 function restore()
 {
+  if [ ! -e /etc/resolv.conf.norestore ] ; then
+    restore_files etc/resolv.conf.forwarders
+    cp -a /etc/resolv.conf{.forwarders,}
+  fi
   check_resolv_conf
   zypper -n install -l -t pattern cloud_admin
   restore_files
