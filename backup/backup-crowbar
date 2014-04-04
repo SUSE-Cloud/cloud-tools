@@ -138,6 +138,7 @@ function restore()
     echo "timed out waiting for chef-ready"
     exit 83
   fi
+  echo
   rccouchdb stop
   restore_files
   reconfigure_rabbitmq
@@ -146,10 +147,12 @@ function restore()
   rcchef-expander restart
   rcchef-solr restart
   rcchef-server restart
-
+  sleep 10
+  knife index rebuild -y
+  rccrowbar stop
   # need to install the barclamps again in order to create the navigation.rb
   # which is missing after this restore
-  /opt/dell/bin/barclamp_install.rb --rpm /opt/dell/barclamps/crowbar/
+  /opt/dell/bin/barclamp_install.rb --rpm /opt/dell/barclamps/*
   # for some reason some files are owned by root
   chown -R crowbar:crowbar /opt/dell/crowbar_framework/config
   raketasks="db:migrate"
