@@ -19,15 +19,51 @@ for X in $EXCLUDEFILES ; do
   XFILES="--exclude $X $XFILES"
 done
 
-function backup()
+function restore_files()
 {
-  /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
+  pushd / >/dev/null
+  echo "restoring from $FILE..."
+  tar -xf "$FILE" $@
+  popd >/dev/null
+}
+
+function extract_dns_forwarders()
+{
   # create a temporary resolv.conf
+  [ -e /etc/bind/named.conf ] || return
   cp -a /etc/resolv.conf{,.forwarders}
   sed -i -e "/^\s*nameserver/d" /etc/resolv.conf.forwarders
   for ns in `perl -ne 'BEGIN{$/=undef}; m/forwarders\s*{([0-9:;\[\]\.\s]+)}/; $f=$1||""; $f=~s/\s*//g; foreach $fw (split(";",$f)){print "$fw\n"}' /etc/bind/named.conf`; do
     echo "nameserver $ns" >> /etc/resolv.conf.forwarders
   done
+}
+
+function restore_dns_forwarders()
+{
+  if [ "$1" = "frombackup" -a ! -e /etc/resolv.conf.norestore ] ; then
+    restore_files etc/resolv.conf.forwarders
+  fi
+  [ -e /etc/resolv.conf.forwarders ] && cp -a /etc/resolv.conf{.forwarders,}
+}
+
+function check_resolv_conf
+{
+  for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
+    if ! netcat -z $ns 53 ; then
+      echo "Error: Nameserver '$ns' is not available. Please reconfigure /etc/resolv.conf manually."
+      exit 1
+    fi
+    if ! ping -c1 turing.suse.de ; then
+      echo "Error: Nameserver '$ns' can not resolve or ping turing.suse.de. Please reconfigure /etc/resolv.conf manually"
+      exit 1
+    fi
+  done
+}
+
+function backup()
+{
+  /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
+  extract_dns_forwarders
   rccouchdb stop
 
   pushd / >/dev/null
@@ -42,6 +78,8 @@ function backup()
 # to be used on an already deployed crowbar
 function cleanup()
 {
+  extract_dns_forwarders
+  restore_dns_forwarders
   pushd / >/dev/null
   for service in crowbar chef-{server,solr,expander,client} couchdb apache2 named dhcpd xinetd rabbitmq-server ; do
     [ -e /etc/init.d/$service ] && /etc/init.d/$service stop
@@ -60,28 +98,6 @@ function purge()
   zypper -n rm `rpm -qa|grep -e crowbar -e chef -e rubygem -e susecloud` couchdb createrepo erlang rabbitmq-server sleshammer yum-common bind bind-chrootenv dhcp-server tftp
   rm -rf /opt/dell /var/log/{rabbitmq,nodes,crowbar,couchdb,chef,barclamps} /var/lib/{chef,couchdb,crowbar,dhcp,named,rabbitmq} /var/cache/chef /var/run/{chef,crowbar,named,rabbitmq} /var/chef /etc/sysconfig/{dhcpd,named,rabbitmq-server} /etc/{bind,chef,dhcp3,crowbar}
   killall epmd # need to kill again after uninstall
-}
-
-function restore_files()
-{
-  pushd / >/dev/null
-  echo "restoring from $FILE..."
-  tar -xf "$FILE" $@
-  popd >/dev/null
-}
-
-function check_resolv_conf
-{
-  for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
-    if ! netcat -z $ns 53 ; then
-      echo "Error: Nameserver '$ns' is not available. Please reconfigure /etc/resolv.conf manually."
-      exit 1
-    fi
-    if ! ping -c1 turing.suse.de ; then
-      echo "Error: Nameserver '$ns' can not resolve or ping turing.suse.de. Please reconfigure /etc/resolv.conf manually"
-      exit 1
-    fi
-  done
 }
 
 function rabbitmq_get_password()
@@ -117,10 +133,7 @@ function reconfigure_rabbitmq()
 
 function restore()
 {
-  if [ ! -e /etc/resolv.conf.norestore ] ; then
-    restore_files etc/resolv.conf.forwarders
-    cp -a /etc/resolv.conf{.forwarders,}
-  fi
+  restore_dns_forwarders frombackup
   check_resolv_conf
   zypper -n install -l -t pattern cloud_admin
   restore_files
