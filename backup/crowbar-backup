@@ -1,11 +1,39 @@
 #!/bin/bash
 
+# crowbar-backup
 #
-# Backup and restore script for Crowbar
+# A script to backup and restore a crowbar admin node.
+# Currently it only supports crowbar on SUSE based distributions.
 #
-# 2013-2014, SUSE Linux Products GmbH
-# Authors: {bwiedemann,jdsn}@suse.de
+# This script is meant to _document_ the steps needed for a backup and
+# restore. You might want to add additional steps.
 #
+# Enhancements are welcome at:
+#   http://github.com/SUSE-Cloud/cloud-tools
+#
+#
+# MIT License
+# Copyright (c) 2013-2014, SUSE Linux Products GmbH
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+
 
 CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
 CROWBARFILES="etc/crowbar var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
