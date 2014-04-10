@@ -34,21 +34,30 @@
 # THE SOFTWARE.
 
 
-
+# files and directories to be backuped
 CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
 CROWBARFILES="etc/crowbar var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
 BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES etc/resolv.conf.forwarders"
 
+# files and directories to be excluded from backup
 EXCLUDEFILES="var/lib/crowbar/cache"
 XFILES=""
 for X in $EXCLUDEFILES ; do
   XFILES="--exclude $X $XFILES"
 done
 
+# _domainname_ of a server for a ping and DNS test
+# can be set via "export pingserver=ping.example.com"
+PINGSERVER=${pingserver:-turing.suse.de}
+
+# default backup file name
+FILEDEF=/tmp/backup-crowbar.tar.gz
+
 function restore_files()
 {
+  # restore all or specific files from backup tarball
   pushd / >/dev/null
   echo "restoring from $FILE..."
   tar -xf "$FILE" $@
@@ -57,7 +66,7 @@ function restore_files()
 
 function extract_dns_forwarders()
 {
-  # create a temporary resolv.conf
+  # save the DNS forwarders in /etc/resolv.conf.forwarders
   [ -e /etc/bind/named.conf ] || return
   cp -a /etc/resolv.conf{,.forwarders}
   sed -i -e "/^\s*nameserver/d" /etc/resolv.conf.forwarders
@@ -68,6 +77,7 @@ function extract_dns_forwarders()
 
 function restore_dns_forwarders()
 {
+  # restore the resolv.conf from backup resp. /etc/resolv.conf.forwarders
   if [ "$1" = "frombackup" -a ! -e /etc/resolv.conf.norestore ] ; then
     restore_files etc/resolv.conf.forwarders
   fi
@@ -76,12 +86,13 @@ function restore_dns_forwarders()
 
 function check_resolv_conf
 {
+  # check if DNS servers are available and can resolve domain names
   for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
     if ! netcat -z $ns 53 ; then
       echo "Error: Nameserver '$ns' is not available. Please reconfigure /etc/resolv.conf manually."
       exit 1
     fi
-    if ! ping -c1 turing.suse.de ; then
+    if ! ping -c1 "$PINGSERVER" ; then
       echo "Error: Nameserver '$ns' can not resolve or ping turing.suse.de. Please reconfigure /etc/resolv.conf manually"
       exit 1
     fi
@@ -90,6 +101,7 @@ function check_resolv_conf
 
 function backup()
 {
+  # create the backup tarball
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
   extract_dns_forwarders
   rccouchdb stop
@@ -103,9 +115,10 @@ function backup()
   rcchef-server restart
 }
 
-# to be used on an already deployed crowbar
 function cleanup()
 {
+  # stop crowbar related services and delete its config files
+  # to be used on a deployed crowbar
   extract_dns_forwarders
   restore_dns_forwarders
   pushd / >/dev/null
@@ -122,6 +135,7 @@ function cleanup()
 
 function purge()
 {
+  # cleanup + uninstall all crowbar related packages
   cleanup
   zypper -n rm `rpm -qa|grep -e crowbar -e chef -e rubygem -e susecloud` couchdb createrepo erlang rabbitmq-server sleshammer yum-common bind bind-chrootenv dhcp-server tftp
   rm -rf /opt/dell /var/log/{rabbitmq,nodes,crowbar,couchdb,chef,barclamps} /var/lib/{chef,couchdb,crowbar,dhcp,named,rabbitmq} /var/cache/chef /var/run/{chef,crowbar,named,rabbitmq} /var/chef /etc/sysconfig/{dhcpd,named,rabbitmq-server} /etc/{bind,chef,dhcp3,crowbar}
@@ -130,9 +144,9 @@ function purge()
 
 function rabbitmq_get_password()
 {
+  # read the rabbitmq password for chef from the chef config files
   RABBITPW=`grep --no-filename "^\s*amqp_pass" /etc/chef/{server,solr}.rb | sed -e "s/\s*amqp_pass \"\([^\"]\+\)\"/\1/" | sort | uniq`
   if [ `printf "%s\n" $RABBITPW | wc -l` = 1 ] ; then
-    #rabbitmqctl change_password chef $RABBITPW
     echo -n "$RABBITPW"
   else
     echo -n ""
@@ -141,8 +155,8 @@ function rabbitmq_get_password()
 
 function reconfigure_rabbitmq()
 {
-  # copied from install-suse-cloud
-  # cleanup rabbitmq
+  # clean reconfiguration of rabbitmq
+  ## copied from install-suse-cloud
   rabbitmqctl delete_user chef
 
   # get the original rabbitmq chef password
@@ -154,17 +168,23 @@ function reconfigure_rabbitmq()
     sed -i "s/^\s*amqp_pass .*/amqp_pass \"$rabbit_chef_password\"/" /etc/chef/{server,solr}.rb
   fi
 
-  # create new chef user with proper password in rabbitmq
+  # create new chef user with proper password and permissions in rabbitmq
   rabbitmqctl add_user chef "$rabbit_chef_password"
   rabbitmqctl set_permissions -p /chef chef ".*" ".*" ".*"
 }
 
 function restore()
 {
+  # restore crowbar from tarball
+
   restore_dns_forwarders frombackup
   check_resolv_conf
+
+  # install cloud product (expects that the repos are present)
   zypper -n install -l -t pattern cloud_admin
   restore_files
+
+  # calling install-suse-cloud script
   echo -n "Waiting for install-suse-cloud to finish:"
   # copied from qa_crowbarsetup
   screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
@@ -180,6 +200,8 @@ function restore()
     exit 83
   fi
   echo
+
+  # restoring files and reconfiguring services
   rccouchdb stop
   restore_files
   reconfigure_rabbitmq
@@ -191,21 +213,22 @@ function restore()
   sleep 10
   knife index rebuild -y
   rccrowbar stop
+
   # need to install the barclamps again in order to create the navigation.rb
   # which is missing after this restore
   /opt/dell/bin/barclamp_install.rb --rpm /opt/dell/barclamps/*
-  # for some reason some files are owned by root
   chown -R crowbar:crowbar /opt/dell/crowbar_framework/config
   raketasks="db:migrate"
   # only cleanup migrations if the sessions migration does not exist
   if ! ls /opt/dell/crowbar_framework/db/migrate/ 2>/dev/null | grep -q ".*_create_sessions.rb" ; then
-    # copied from install-suse-cloud
+    ## copied from install-suse-cloud
     rm -rf /opt/dell/crowbar_framework/db/migrate
     rm -f /opt/dell/crowbar_framework/db/{production.sqlite3,schema.rb}
     raketasks="db:sessions:create $raketasks"
   fi
   su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production rake $raketasks"
 
+  # final chef run
   chef-client
   rccrowbar start
   sleep 20
@@ -217,9 +240,6 @@ function restore()
     exit 1
   fi
 }
-
-FILEDEF=/tmp/backup-crowbar.tar.gz
-FILE=${2:-$FILEDEF}
 
 function help()
 {
@@ -236,5 +256,7 @@ function help()
   echo
   echo " If <FILE> is omitted it defaults to $FILEDEF"
 }
+
+FILE=${2:-$FILEDEF}
 
 $@
