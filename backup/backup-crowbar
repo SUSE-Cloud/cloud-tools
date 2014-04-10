@@ -190,16 +190,23 @@ function restore()
   fi
 }
 
+FILEDEF=/tmp/backup-crowbar.tar.gz
+FILE=${2:-$FILEDEF}
+
 function help()
 {
-  echo "usage: $0 [help|backup|restore] <FILE>"
+  echo "usage: $0 [help|backup|restore|cleanup|purge] [<FILE>]"
   echo
-  echo " backup <FILE>"
+  echo " backup [<FILE>]"
   echo "     create a backup tarball of admin node config data in <FILE>"
-  echo " restore <FILE>"
+  echo " restore [<FILE>]"
   echo "     restore a backup of an admin node config from tarball <FILE>"
+  echo " cleanup"
+  echo "     stop services and delete config files related to crowbar"
+  echo " purge"
+  echo "     wipe all packages and config files related to crowbar"
+  echo
+  echo " If <FILE> is omitted it defaults to $FILEDEF"
 }
-
-FILE=${2:-/tmp/backup-crowbar.tar.gz}
 
 $@
