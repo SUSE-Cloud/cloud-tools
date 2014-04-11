@@ -230,6 +230,8 @@ function restore()
 
   # final chef run
   chef-client
+  chkconfig chef-client on
+  rcchef-client start
   rccrowbar start
   sleep 20
 
