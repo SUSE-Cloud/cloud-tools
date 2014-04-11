@@ -245,7 +245,9 @@ function restore()
 
 function help()
 {
-  echo "usage: $0 [help|backup|restore|cleanup|purge] [<FILE>]"
+  echo "$0 - An example script to backup and restore crowbar"
+  echo
+  echo "Usage: $0 [help|backup|restore|cleanup|purge] [<FILE>]"
   echo
   echo " backup [<FILE>]"
   echo "     create a backup tarball of admin node config data in <FILE>"
@@ -260,5 +262,20 @@ function help()
 }
 
 FILE=${2:-$FILEDEF}
+
+case $1 in
+  help)
+  ;;
+  *)
+    echo "Please Note!"
+    echo "This is an unsupported example script. It is a working"
+    echo "documentation of the backup and restore process."
+    echo "Use with care. You may need to adapt it to your setup."
+    read -p "Continue? (y/N) "
+    if [[ $REPLY != [yY] ]] ; then
+      exit 0
+    fi
+  ;;
+esac
 
 $@
