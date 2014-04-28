@@ -262,8 +262,13 @@ function help()
 }
 
 FILE=${2:-$FILEDEF}
+declare -a action
+action=( $@ )
+if [[ ${#action[@]} < 1 ]] ; then
+  action[0]='help'
+fi
 
-case $1 in
+[ -z "$AGREEUNSUPPORTED" ] && case "${action[0]}" in
   help)
   ;;
   *)
@@ -278,4 +283,4 @@ case $1 in
   ;;
 esac
 
-$@
+${action[*]}
