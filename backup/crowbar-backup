@@ -129,7 +129,8 @@ function cleanup()
   killall looper_chef_client.sh
   LOGS=var/log/{crowbar,chef,couchdb,apache2}
   DEPLOYED="var/lib/chef etc/bind etc/dhcp3 etc/xinetd.d/tftp /srv/tftpboot/discovery/pxelinux.cfg/*"
-  rm -rf $BFILES $LOGS $DEPLOYED
+  DFILES="$(echo $BFILES | sed -e 's# root/.ssh # #')"
+  rm -rf $DFILES $LOGS $DEPLOYED
   popd >/dev/null
 }
 
