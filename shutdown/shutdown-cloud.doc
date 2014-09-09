@@ -1,0 +1,35 @@
+Shutdown an entire cloud
+Note: The scripts are mostly untested
+
+1) Stop all VM instances.
+     See shutdown_instances.sh or do it manually
+
+2) Stop chef-client on all nodes
+     See shutdown_chef.sh or do it manually
+
+3) Stop pacemaker with rcopenais command on the respective nodes  in the following order:
+     Neutron-L3 cluster
+     Other services cluster (nova, horizon, etc.)
+     Data cluster (database and rabbitmq)
+
+4) Shutdown all the nodes, but the admin node
+     See shutdown_nodes.sh or do it manually
+
+5) Shutdown the admin node
+
+
+Startup
+
+1) Turn on the admin node
+2) Turn on the data related cluster system
+     You can check the status of the cluster running "crm status"
+     In the node where postgres is running you can run "su - postgres -c psql"
+     In the node where rabbitmq is running you can run "rabbitmqctl list_vhosts"
+     Turn on the services cluster
+     If running ceph, then power on the ceph nodes
+     Power on the Neutron L3 service cluster system
+     Power on the compute nodes
+     Manually run crm_mon -1r on the cluster to see if all services operate normal
+3) Nodes might get stalled in state 'Readying' or 'Problem'. Reboot nodes if needed.
+
+
