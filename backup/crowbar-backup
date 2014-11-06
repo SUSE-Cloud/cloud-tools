@@ -88,12 +88,12 @@ function check_resolv_conf
 {
   # check if DNS servers are available and can resolve domain names
   for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
-    if ! netcat -z $ns 53 ; then
+    if ! netcat -zu $ns 53 ; then
       echo "Error: Nameserver '$ns' is not available. Please reconfigure /etc/resolv.conf manually."
       exit 1
     fi
     if ! ping -c1 "$PINGSERVER" ; then
-      echo "Error: Nameserver '$ns' can not resolve or ping turing.suse.de. Please reconfigure /etc/resolv.conf manually"
+      echo "Error: Nameserver '$ns' can not resolve or ping $PINGSERVER. Please reconfigure /etc/resolv.conf manually"
       exit 1
     fi
   done
