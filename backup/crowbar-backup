@@ -262,7 +262,7 @@ function help()
   echo " If <FILE> is omitted it defaults to $FILEDEF"
 }
 
-FILE=${2:-$FILEDEF}
+FILE=$(realpath ${2:-$FILEDEF})
 declare -a action
 action=( $@ )
 if [[ ${#action[@]} < 1 ]] ; then
