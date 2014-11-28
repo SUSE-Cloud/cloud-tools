@@ -41,34 +41,21 @@ if [ ! -d /var/log/crowbar/ ]; then
   mkdir -p /var/log/crowbar
 fi
 
-### based on install-chef-suse.sh
+#Add logging, also keep stdout
+exec >  >(tee -a $LOGFILE)
+exec 2> >(tee -a $LOGFILE >&2)
 
-# Copy stdout to fd 3
-exec 3>&1
-# Create fd 4 for logfile
-exec 4>> "$LOGFILE"
-
-# Set fd 1 and 2 to logfile (and keep stdout too)
-exec 1> >( tee -a /dev/fd/4 ) 2>&1
-
-# Send summary fd to original stdout
-exec 6>&3
-
-function echo_log () {
-  echo -e === "$(date '+%F %T %z'): $@" >&4
+function echo_log ()
+{
+  echo -e === "$(date '+%F %T %z'): $@"
 }
 
-function echo_summary () {
-  # Also send summary to logfile
+function echo_summary ()
+{
+  # Also send message with timestamp to logfile
   echo_log $@
-
-  echo -e === $@ >&3
+  echo -e === $@
 }
-
-echo_if_log () {
-  echo $@
-}
-
 
 # files and directories to be backuped
 CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
@@ -286,6 +273,7 @@ function restore()
     echo "       Please see /var/log/crowbar/production.log for details."
     exit 1
   fi
+  echo_summary "Successfully finished restore"
 }
 
 function help()
