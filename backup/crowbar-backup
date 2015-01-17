@@ -217,7 +217,7 @@ function restore()
   restore_files
 
   # calling install-suse-cloud script
-  echo  "Waiting for install-suse-cloud to finish:"
+  echo "Waiting for install-suse-cloud to finish:"
   # copied from qa_crowbarsetup
   screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
   sleep 2 # need to wait for initial deletion of chef-ready
