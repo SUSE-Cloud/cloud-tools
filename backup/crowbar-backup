@@ -217,7 +217,7 @@ function restore()
   restore_files
 
   # calling install-suse-cloud script
-  echo  "Waiting for install-suse-cloud to finish:"
+  echo "Waiting for install-suse-cloud to finish:"
   # copied from qa_crowbarsetup
   screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
   sleep 2 # need to wait for initial deletion of chef-ready
@@ -301,14 +301,12 @@ if [[ ${#action[@]} < 1 ]] ; then
   action[0]='help'
 fi
 
-[ -z "$AGREEUNSUPPORTED" ] && case "${action[0]}" in
+[ -z "$CB_BACKUP_IGNOREWARNING" ] && case "${action[0]}" in
   help)
   ;;
   *)
-    echo "Please Note!"
-    echo "This is an unsupported example script. It is a working"
-    echo "documentation of the backup and restore process."
-    echo "Use with care. You may need to adapt it to your setup."
+    echo "This script is a working documentation of the backup and restore process."
+    echo "You may need to adapt it to your setup."
     read -p "Continue? (y/N) "
     if [[ $REPLY != [yY] ]] ; then
       exit 0
