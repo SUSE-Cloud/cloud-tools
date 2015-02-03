@@ -34,6 +34,29 @@
 # THE SOFTWARE.
 
 
+LOGFILE="/var/log/crowbar/backup-restore.log"
+
+# Add logging based on the work in suse-cloud-upgrade
+if [ ! -d /var/log/crowbar/ ]; then
+  mkdir -p /var/log/crowbar
+fi
+
+#Add logging, also keep stdout
+exec >  >(tee -a $LOGFILE)
+exec 2> >(tee -a $LOGFILE >&2)
+
+function echo_log ()
+{
+  echo -e === "$(date '+%F %T %z'): $@"
+}
+
+function echo_summary ()
+{
+  # Also send message with timestamp to logfile
+  echo_log $@
+  echo -e === $@
+}
+
 # files and directories to be backuped
 CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
 CROWBARFILES="etc/crowbar var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
@@ -59,7 +82,7 @@ function restore_files()
 {
   # restore all or specific files from backup tarball
   pushd / >/dev/null
-  echo "restoring from $FILE..."
+  echo_summary "Restoring from $FILE..."
   tar -xf "$FILE" $@
   popd >/dev/null
 }
@@ -67,6 +90,7 @@ function restore_files()
 function extract_dns_forwarders()
 {
   # save the DNS forwarders in /etc/resolv.conf.forwarders
+  echo "Extracting DNS forwarders"
   [ -e /etc/bind/named.conf ] || return
   cp -a /etc/resolv.conf{,.forwarders}
   sed -i -e "/^\s*nameserver/d" /etc/resolv.conf.forwarders
@@ -78,6 +102,7 @@ function extract_dns_forwarders()
 function restore_dns_forwarders()
 {
   # restore the resolv.conf from backup resp. /etc/resolv.conf.forwarders
+  echo "Restoring DNS forwarders"
   if [ "$1" = "frombackup" -a ! -e /etc/resolv.conf.norestore ] ; then
     restore_files etc/resolv.conf.forwarders
   fi
@@ -87,6 +112,7 @@ function restore_dns_forwarders()
 function check_resolv_conf
 {
   # check if DNS servers are available and can resolve domain names
+  echo "Check if DNS is available and domain resolution works"
   for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
     if ! dig @$ns +short "$HOSTTEST" >/dev/null; then
       echo "Error: Nameserver '$ns' can not resolve $HOSTTEST. Please reconfigure /etc/resolv.conf manually"
@@ -98,12 +124,13 @@ function check_resolv_conf
 function backup()
 {
   # create the backup tarball
+  echo_summary "Creating backup"
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
   extract_dns_forwarders
   rccouchdb stop
 
   pushd / >/dev/null
-  echo "backing up to $FILE..."
+  echo "Backing up to $FILE..."
   tar -czf "$FILE" $XFILES $BFILES
   popd >/dev/null
 
@@ -115,6 +142,7 @@ function cleanup()
 {
   # stop crowbar related services and delete its config files
   # to be used on a deployed crowbar
+  echo_summary "Cleaning up the system"
   extract_dns_forwarders
   restore_dns_forwarders
   pushd / >/dev/null
@@ -133,6 +161,7 @@ function cleanup()
 function purge()
 {
   # cleanup + uninstall all crowbar related packages
+  echo_summary "Purging the system"
   cleanup
   zypper -n rm `rpm -qa|grep -e crowbar -e chef -e rubygem -e susecloud` couchdb createrepo erlang rabbitmq-server sleshammer yum-common bind bind-chrootenv dhcp-server tftp
   rm -rf /opt/dell /var/log/{rabbitmq,nodes,crowbar,couchdb,chef,barclamps} /var/lib/{chef,couchdb,crowbar,dhcp,named,rabbitmq} /var/cache/chef /var/run/{chef,crowbar,named,rabbitmq} /var/chef /etc/sysconfig/{dhcpd,named,rabbitmq-server} /etc/{bind,chef,dhcp3,crowbar}
@@ -173,6 +202,8 @@ function reconfigure_rabbitmq()
 function restore()
 {
   # restore crowbar from tarball
+  echo_summary "Restoring the system from backup"
+
 
   restore_dns_forwarders frombackup
   check_resolv_conf
@@ -182,7 +213,7 @@ function restore()
   restore_files
 
   # calling install-suse-cloud script
-  echo -n "Waiting for install-suse-cloud to finish:"
+  echo  "Waiting for install-suse-cloud to finish:"
   # copied from qa_crowbarsetup
   screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
   sleep 2 # need to wait for initial deletion of chef-ready
@@ -193,7 +224,7 @@ function restore()
     echo -n .
   done
   if [ $n = 0 ] ; then
-    echo "timed out waiting for chef-ready"
+    echo "Timed out waiting for chef-ready"
     exit 83
   fi
   echo
@@ -238,6 +269,7 @@ function restore()
     echo "       Please see /var/log/crowbar/production.log for details."
     exit 1
   fi
+  echo_summary "Successfully finished restore"
 }
 
 function help()
@@ -265,14 +297,12 @@ if [[ ${#action[@]} < 1 ]] ; then
   action[0]='help'
 fi
 
-[ -z "$AGREEUNSUPPORTED" ] && case "${action[0]}" in
+[ -z "$CB_BACKUP_IGNOREWARNING" ] && case "${action[0]}" in
   help)
   ;;
   *)
-    echo "Please Note!"
-    echo "This is an unsupported example script. It is a working"
-    echo "documentation of the backup and restore process."
-    echo "Use with care. You may need to adapt it to your setup."
+    echo "This script is a working documentation of the backup and restore process."
+    echo "You may need to adapt it to your setup."
     read -p "Continue? (y/N) "
     if [[ $REPLY != [yY] ]] ; then
       exit 0
