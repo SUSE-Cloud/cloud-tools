@@ -65,7 +65,7 @@ ROOTFILES="root/.chef root/.ssh root/.gnupg"
 BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES etc/resolv.conf.forwarders"
 
 # files and directories to be excluded from backup
-EXCLUDEFILES="var/lib/crowbar/cache"
+EXCLUDEFILES="var/lib/crowbar/cache etc/chef/amqp_passwd"
 XFILES=""
 for X in $EXCLUDEFILES ; do
   XFILES="--exclude $X $XFILES"
