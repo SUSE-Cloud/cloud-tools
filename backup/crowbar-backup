@@ -210,7 +210,7 @@ function restore()
     exit 82
   fi
 
-  restore_files
+  restore_files etc/crowbar
 
   # calling install-suse-cloud script
   echo "Waiting for install-suse-cloud to finish:"
