@@ -272,13 +272,15 @@ function help()
 }
 
 FILE=$(readlink -m ${2:-$FILEDEF})
-declare -a action
-action=( $@ )
-if [[ ${#action[@]} < 1 ]] ; then
-  action[0]='help'
+
+if [ $# -ne 1 -a $# -ne 2 ]; then
+  help
+  exit
 fi
 
-[ -z "$CB_BACKUP_IGNOREWARNING" ] && case "${action[0]}" in
+action=$1
+
+[ -z "$CB_BACKUP_IGNOREWARNING" ] && case "$action" in
   help)
   ;;
   *)
@@ -291,4 +293,4 @@ fi
   ;;
 esac
 
-${action[*]}
+$action
