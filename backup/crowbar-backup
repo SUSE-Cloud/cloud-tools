@@ -76,7 +76,7 @@ done
 HOSTTEST=${pingserver:-www.suse.com}
 
 # default backup file name
-FILEDEF=/tmp/backup-crowbar.tar.gz
+FILEDEF=backup-crowbar.tar.gz
 
 function restore_files()
 {
