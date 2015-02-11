@@ -124,6 +124,15 @@ function check_resolv_conf
 
 function backup()
 {
+  if [ -f "$FILE" ]; then
+    echo "$FILE already exists."
+    read -p "Do you want to overwrite $FILE? (y/N) "
+    if [[ $REPLY != [yY] ]] ; then
+      exit 0
+    fi
+  fi
+
+
   # create the backup tarball
   echo_summary "Creating backup"
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
