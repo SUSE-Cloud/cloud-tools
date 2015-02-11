@@ -259,11 +259,6 @@ function restore()
 
   knife index rebuild -y
 
-  # need to install the barclamps again in order to create the navigation.rb
-  # which is missing after this restore
-  /opt/dell/bin/barclamp_install.rb --rpm /opt/dell/barclamps/*
-  chown -R crowbar:crowbar /opt/dell/crowbar_framework/config
-
   # Create session store database
   rm -f /opt/dell/crowbar_framework/db/*.sqlite3
   su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:create db:migrate"
