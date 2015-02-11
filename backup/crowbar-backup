@@ -209,6 +209,8 @@ function restore()
   done
 
   restore_files
+  # force-reset the chef AMQP password, since we restored old rabbitmq files
+  rm /etc/chef/amqp_passwd
 
   for i in rabbitmq-server couchdb chef-solr chef-expander chef-server; do
     service $i start
