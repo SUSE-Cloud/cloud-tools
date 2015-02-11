@@ -222,6 +222,9 @@ function restore()
     exit 89
   fi
 
+  rcchef-client stop
+  rccrowbar stop
+
   # restoring files; we stop the services that this impacts before
   for i in chef-server chef-expander chef-solr couchdb rabbitmq-server; do
     service $i stop
@@ -237,9 +240,6 @@ function restore()
   done
 
   knife index rebuild -y
-
-  rcchef-client stop
-  rccrowbar stop
 
   # need to install the barclamps again in order to create the navigation.rb
   # which is missing after this restore
