@@ -169,6 +169,11 @@ function purge()
 
 function restore()
 {
+  if ! [ -f "$FILE" ]; then
+    echo "$FILE does not exist."
+    exit 82
+  fi
+
   if [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
     echo "Crowbar seems to already be installed and ready to run."
     read -p "Do you want to overwrite the current setup? (y/N) "
