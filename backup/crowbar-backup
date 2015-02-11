@@ -342,7 +342,7 @@ function help()
   echo " purge"
   echo "     wipe all packages and config files related to crowbar"
   echo
-  echo " If <FILE> is omitted it defaults to $FILEDEF"
+  echo "If <FILE> is omitted, it defaults to $FILEDEF"
 }
 
 FILE=$(readlink -m ${2:-$FILEDEF})
