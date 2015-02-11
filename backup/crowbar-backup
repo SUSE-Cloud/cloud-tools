@@ -224,6 +224,7 @@ function restore()
 
   knife index rebuild -y
 
+  rcchef-client stop
   rccrowbar stop
 
   # need to install the barclamps again in order to create the navigation.rb
@@ -237,9 +238,11 @@ function restore()
 
   # final chef run
   chef-client
+
   chkconfig chef-client on
   rcchef-client start
   rccrowbar start
+
   sleep 120
 
   # check if crowbar is accessible
