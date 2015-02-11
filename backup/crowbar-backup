@@ -280,6 +280,8 @@ function restore()
   rcchef-client start
   rccrowbar start
 
+  echo "Waiting 2 minutes before validating that restoration worked..."
+
   sleep 120
 
   # check if crowbar is accessible
