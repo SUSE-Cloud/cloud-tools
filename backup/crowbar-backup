@@ -203,16 +203,20 @@ function restore()
     exit 89
   fi
 
-  # restoring files and reconfiguring services
-  rccouchdb stop
+  # restoring files; we stop the services that this impacts before
+  for i in chef-server chef-expander chef-solr couchdb rabbitmq-server; do
+    service $i stop
+  done
+
   restore_files
-  rccouchdb start
-  sleep 20 # wait for couchdb before restarting chef-server
-  rcchef-expander restart
-  rcchef-solr restart
-  rcchef-server restart
-  sleep 10
+
+  for i in rabbitmq-server couchdb chef-solr chef-expander chef-server; do
+    service $i start
+    sleep 4
+  done
+
   knife index rebuild -y
+
   rccrowbar stop
 
   # need to install the barclamps again in order to create the navigation.rb
