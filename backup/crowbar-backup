@@ -169,6 +169,15 @@ function purge()
 
 function restore()
 {
+  if [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
+    echo "Crowbar seems to already be installed and ready to run."
+    read -p "Do you want to overwrite the current setup? (y/N) "
+    if [[ $REPLY != [yY] ]] ; then
+      exit 0
+    fi
+    rm /opt/dell/crowbar_framework/.crowbar-installed-ok
+  fi
+
   # restore crowbar from tarball
   echo_summary "Restoring the system from backup"
 
