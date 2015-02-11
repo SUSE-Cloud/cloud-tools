@@ -61,7 +61,7 @@ function echo_summary ()
 }
 
 # files and directories to be backed up
-CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
+CHEFFILES="etc/chef var/lib/couchdb/chef.couch"
 CROWBARFILES="etc/crowbar etc/crowbar.install.key var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
