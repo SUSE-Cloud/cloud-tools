@@ -282,6 +282,29 @@ function restore()
   rcchef-client stop
   rccrowbar stop
 
+  # Remember barclamps that we have locally, that were not in the backup
+  reinstall_barclamps=
+  if [ -f /var/lib/crowbar/backup/barclamp-list ]; then
+    for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
+      barclamp=$(basename $i | sed "s/\.yml//g")
+      grep -qx "$barclamp" /var/lib/crowbar/backup/barclamp-list && continue
+
+      if rpm -q "crowbar-barclamp-$barclamp" &> /dev/null; then
+        echo "Will reinstall barclamp $barclamp that was not part of the backup."
+        reinstall_barclamps="$reinstall_barclamps $barclamp"
+        continue
+      fi
+
+      # Try to convert _ to - in the barclamp name
+      barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
+      if rpm -q "crowbar-barclamp-$barclamp_dash" &> /dev/null; then
+        echo "Will reinstall barclamp $barclamp that was not part of the backup."
+        reinstall_barclamps="$reinstall_barclamps $barclamp_dash"
+        continue
+      fi
+    done
+  fi
+
   # restoring files; we stop the services that this impacts before
   for i in chef-server chef-expander chef-solr couchdb rabbitmq-server; do
     service $i stop
@@ -305,6 +328,12 @@ function restore()
   # Create session store database
   rm -f /opt/dell/crowbar_framework/db/*.sqlite3
   su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:create db:migrate"
+
+  # Now reinstall barclamps that are on the system but were not in the backup
+  for reinstall_barclamp in $reinstall_barclamps; do
+    # FIXME: in the future, it might be nicer to ask the user what to do
+    /opt/dell/bin/barclamp_install.rb --rpm $reinstall_barclamp
+  done
 
   # final chef run
   chef-client
