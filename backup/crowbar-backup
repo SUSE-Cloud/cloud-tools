@@ -61,7 +61,7 @@ function echo_summary ()
 }
 
 # files and directories to be backed up
-CHEFFILES="etc/chef var/lib/couchdb/chef.couch"
+CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/couchdb/.chef_design"
 CROWBARFILES="etc/crowbar etc/crowbar.install.key var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
@@ -254,7 +254,11 @@ function restore()
     service $i stop
   done
 
+  # remove couchdb bits that will not be valid with restored files
+  rm -r /var/lib/couchdb/.chef_design
+
   restore_files
+
   # force-reset the chef AMQP password, since we restored old rabbitmq files
   rm /etc/chef/amqp_passwd
 
