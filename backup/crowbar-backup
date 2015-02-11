@@ -284,9 +284,7 @@ fi
 action=$1
 
 [ -z "$CB_BACKUP_IGNOREWARNING" ] && case "$action" in
-  help)
-  ;;
-  *)
+  backup|restore|cleanup|purge)
     echo "This script is a working documentation of the backup and restore process."
     echo "You may need to adapt it to your setup."
     read -p "Continue? (y/N) "
@@ -294,6 +292,12 @@ action=$1
       exit 0
     fi
     setup_log
+  ;;
+  help)
+  ;;
+  *)
+    help
+    exit 1
   ;;
 esac
 
