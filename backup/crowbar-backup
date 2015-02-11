@@ -230,15 +230,10 @@ function restore()
   # which is missing after this restore
   /opt/dell/bin/barclamp_install.rb --rpm /opt/dell/barclamps/*
   chown -R crowbar:crowbar /opt/dell/crowbar_framework/config
-  raketasks="db:migrate"
-  # only cleanup migrations if the sessions migration does not exist
-  if ! ls /opt/dell/crowbar_framework/db/migrate/ 2>/dev/null | grep -q ".*_create_sessions.rb" ; then
-    ## copied from install-suse-cloud
-    rm -rf /opt/dell/crowbar_framework/db/migrate
-    rm -f /opt/dell/crowbar_framework/db/{production.sqlite3,schema.rb}
-    raketasks="db:sessions:create $raketasks"
-  fi
-  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production rake $raketasks"
+
+  # Create session store database
+  rm -f /opt/dell/crowbar_framework/db/*.sqlite3
+  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:create db:migrate"
 
   # final chef run
   chef-client
