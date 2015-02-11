@@ -258,7 +258,7 @@ function restore()
 
 function help()
 {
-  echo "$0 - An example script to backup and restore crowbar"
+  echo "$0 - Utility to backup and restore Crowbar"
   echo
   echo "Usage: $0 [help|backup|restore|cleanup|purge] [<FILE>]"
   echo
