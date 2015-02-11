@@ -285,7 +285,8 @@ function restore()
   sleep 120
 
   # check if crowbar is accessible
-  if ! curl -m 59 -s --digest --user crowbar:crowbar localhost:3000 | grep -q /nodes/crowbar ; then
+  CROWBAR_KEY=$(cat /etc/crowbar.install.key)
+  if ! curl -m 59 -s --digest --user machine-install:"${CROWBAR_KEY##*:}" localhost:3000 | grep -q /nodes/crowbar ; then
     echo "Error: Could not connect to Crowbar."
     echo "       Please see /var/log/crowbar/production.log for details."
     exit 1
