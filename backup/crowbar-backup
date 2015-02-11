@@ -143,7 +143,7 @@ function backup()
   rccouchdb stop
 
   echo "Backing up to $FILE..."
-  tar -C / -czf "$FILE" $XFILES $BFILES
+  tar -C / --ignore-failed-read -czf "$FILE" $XFILES $BFILES
 
   rccouchdb start
   sleep 4
