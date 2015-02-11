@@ -191,14 +191,16 @@ function restore()
     echo -n .
   done
   if [ $n = 0 ] ; then
-    echo "Timed out waiting for chef-ready"
+    echo "Timed out waiting for install-suse-cloud"
     exit 83
   fi
   echo
 
+  rm /tmp/chef-ready
+
   # Make sure install finished correctly
   if ! [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
-    echo "Crowbar \".crowbar-installed-ok\" marker missing"
+    echo "install-suse-cloud didn't complete successfully"
     tail -n 90 /root/screenlog.0
     exit 89
   fi
