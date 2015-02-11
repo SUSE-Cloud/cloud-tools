@@ -133,11 +133,18 @@ function backup()
     fi
   fi
 
-
   # create the backup tarball
   echo_summary "Creating backup"
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
   extract_dns_forwarders
+
+  mkdir -p /var/lib/crowbar/backup
+  rm -f /var/lib/crowbar/backup/barclamp-list
+  if [ -f /opt/dell/crowbar_framework/barclamps/crowbar.yml ]; then
+    for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
+      basename $i | sed "s/\.yml//g" >> /var/lib/crowbar/backup/barclamp-list
+    done
+  fi
 
   rcchef-server stop
   rccouchdb stop
@@ -211,6 +218,30 @@ function restore()
     exit 82
   fi
 
+  restore_files var/lib/crowbar/backup
+
+  if [ -f /var/lib/crowbar/backup/barclamp-list ]; then
+    missing_barclamps=
+    for barclamp in $(sort -u /var/lib/crowbar/backup/barclamp-list); do
+      rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
+      test -d "/opt/dell/barclamps/$barclamp" && continue
+
+      # Try to convert _ to - in the barclamp name
+      barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
+      rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
+      test -d "/opt/dell/barclamps/${barclamp_dash}" && continue
+
+      missing_barclamps="$missing_barclamps $barclamp"
+    done
+
+    if [ -n "$missing_barclamps" ]; then
+      echo "The following barclamps were installed on the system where the backup was"
+      echo "created and are not available on this system. Please install them."
+      echo "   $missing_barclamps"
+      exit 83
+    fi
+  fi
+
   restore_files etc/crowbar
   restore_files $ETCFILES
 
@@ -233,7 +264,7 @@ function restore()
   done
   if [ $n = 0 ] ; then
     echo "Timed out waiting for install-suse-cloud"
-    exit 83
+    exit 84
   fi
   echo
 
