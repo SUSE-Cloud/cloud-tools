@@ -36,14 +36,17 @@
 
 LOGFILE="/var/log/crowbar/backup-restore.log"
 
-# Add logging based on the work in suse-cloud-upgrade
-if [ ! -d /var/log/crowbar/ ]; then
-  mkdir -p /var/log/crowbar
-fi
+function setup_log ()
+{
+  # Add logging based on the work in suse-cloud-upgrade
+  if [ ! -d /var/log/crowbar/ ]; then
+    mkdir -p /var/log/crowbar
+  fi
 
-#Add logging, also keep stdout
-exec >  >(tee -a $LOGFILE)
-exec 2> >(tee -a $LOGFILE >&2)
+  #Add logging, also keep stdout
+  exec >  >(tee -a $LOGFILE)
+  exec 2> >(tee -a $LOGFILE >&2)
+}
 
 function echo_log ()
 {
@@ -290,6 +293,7 @@ action=$1
     if [[ $REPLY != [yY] ]] ; then
       exit 0
     fi
+    setup_log
   ;;
 esac
 
