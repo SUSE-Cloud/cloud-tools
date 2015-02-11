@@ -65,7 +65,8 @@ CHEFFILES="etc/chef var/lib/couchdb/chef.couch"
 CROWBARFILES="etc/crowbar etc/crowbar.install.key var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
-BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES etc/sysconfig/clock etc/resolv.conf.forwarders etc/ntp.conf"
+ETCFILES="etc/sysconfig/clock etc/resolv.conf.forwarders etc/ntp.conf etc/HOSTNAME etc/hosts"
+BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES $ETCFILES"
 
 # files and directories to be excluded from backup
 EXCLUDEFILES="var/lib/crowbar/cache etc/chef/amqp_passwd"
@@ -164,7 +165,7 @@ function cleanup()
   killall looper_chef_client.sh
   LOGS=var/log/{crowbar,chef,couchdb,apache2}
   DEPLOYED="var/lib/chef etc/bind etc/dhcp3 etc/xinetd.d/tftp /srv/tftpboot/discovery/pxelinux.cfg/*"
-  DFILES="$(echo $BFILES | sed -e 's# root/.ssh # #;s# etc/ntp.conf # #;s# etc/sysconfig/clock # #')"
+  DFILES="$(echo $ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES | sed -e 's# root/.ssh # #')"
   rm -rf $DFILES $LOGS $DEPLOYED
   popd >/dev/null
 }
@@ -211,6 +212,11 @@ function restore()
   fi
 
   restore_files etc/crowbar
+  restore_files $ETCFILES
+
+  # set the correct hostname
+  RESTORE_HOSTNAME=$(cat /etc/HOSTNAME)
+  hostname "${RESTORE_HOSTNAME%%.*}"
 
   # calling install-suse-cloud script
   echo "Waiting for install-suse-cloud to finish:"
