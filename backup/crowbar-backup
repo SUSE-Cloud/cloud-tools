@@ -81,10 +81,8 @@ FILEDEF=/tmp/backup-crowbar.tar.gz
 function restore_files()
 {
   # restore all or specific files from backup tarball
-  pushd / >/dev/null
   echo_summary "Restoring from $FILE..."
-  tar -xf "$FILE" $@
-  popd >/dev/null
+  tar -C / -xf "$FILE" $@
 }
 
 function extract_dns_forwarders()
@@ -129,10 +127,8 @@ function backup()
   extract_dns_forwarders
   rccouchdb stop
 
-  pushd / >/dev/null
   echo "Backing up to $FILE..."
-  tar -czf "$FILE" $XFILES $BFILES
-  popd >/dev/null
+  tar -C / -czf "$FILE" $XFILES $BFILES
 
   rccouchdb start
   rcchef-server restart
