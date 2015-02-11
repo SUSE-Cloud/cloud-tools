@@ -128,13 +128,16 @@ function backup()
   echo_summary "Creating backup"
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
   extract_dns_forwarders
+
+  rcchef-server stop
   rccouchdb stop
 
   echo "Backing up to $FILE..."
   tar -C / -czf "$FILE" $XFILES $BFILES
 
   rccouchdb start
-  rcchef-server restart
+  sleep 4
+  rcchef-server start
 }
 
 function cleanup()
