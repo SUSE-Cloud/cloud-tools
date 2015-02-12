@@ -233,6 +233,13 @@ function restore()
       rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
       test -d "/opt/dell/barclamps/${barclamp_dash}" && continue
 
+      # FIXME: in the future, it might be nicer to ask the user what to do
+      echo "Trying to install barclamp $barclamp that is required by the backup."
+      zypper -n install crowbar-barclamp-$barclamp crowbar-barclamp-${barclamp_dash}
+
+      rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
+      rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
+
       missing_barclamps="$missing_barclamps $barclamp"
     done
 
