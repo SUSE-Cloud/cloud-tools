@@ -36,14 +36,17 @@
 
 LOGFILE="/var/log/crowbar/backup-restore.log"
 
-# Add logging based on the work in suse-cloud-upgrade
-if [ ! -d /var/log/crowbar/ ]; then
-  mkdir -p /var/log/crowbar
-fi
+function setup_log ()
+{
+  # Add logging based on the work in suse-cloud-upgrade
+  if [ ! -d /var/log/crowbar/ ]; then
+    mkdir -p /var/log/crowbar
+  fi
 
-#Add logging, also keep stdout
-exec >  >(tee -a $LOGFILE)
-exec 2> >(tee -a $LOGFILE >&2)
+  #Add logging, also keep stdout
+  exec >  >(tee -a $LOGFILE)
+  exec 2> >(tee -a $LOGFILE >&2)
+}
 
 function echo_log ()
 {
@@ -57,12 +60,13 @@ function echo_summary ()
   echo -e === $@
 }
 
-# files and directories to be backuped
-CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/chef/cookbook_index"
+# files and directories to be backed up
+CHEFFILES="etc/chef var/lib/couchdb/chef.couch var/lib/couchdb/.chef_design"
 CROWBARFILES="etc/crowbar etc/crowbar.install.key var/lib/crowbar opt/dell/crowbar_framework/config/client.pem"
 TFTPFILES="srv/tftpboot/validation.pem srv/tftpboot/nodes"
 ROOTFILES="root/.chef root/.ssh root/.gnupg"
-BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES etc/resolv.conf.forwarders"
+ETCFILES="etc/sysconfig/clock etc/resolv.conf.forwarders etc/ntp.conf etc/HOSTNAME etc/hosts"
+BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES $ETCFILES"
 
 # files and directories to be excluded from backup
 EXCLUDEFILES="var/lib/crowbar/cache etc/chef/amqp_passwd"
@@ -76,15 +80,13 @@ done
 HOSTTEST=${pingserver:-www.suse.com}
 
 # default backup file name
-FILEDEF=/tmp/backup-crowbar.tar.gz
+FILEDEF=backup-crowbar.tar.gz
 
 function restore_files()
 {
   # restore all or specific files from backup tarball
-  pushd / >/dev/null
   echo_summary "Restoring from $FILE..."
-  tar -xf "$FILE" $@
-  popd >/dev/null
+  tar -C / -xf "$FILE" $@
 }
 
 function extract_dns_forwarders()
@@ -115,7 +117,8 @@ function check_resolv_conf
   echo "Check if DNS is available and domain resolution works"
   for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
     if ! dig @$ns +short "$HOSTTEST" >/dev/null; then
-      echo "Error: Nameserver '$ns' can not resolve $HOSTTEST. Please reconfigure /etc/resolv.conf manually"
+      echo "Error: Nameserver '$ns' can not resolve $HOSTTEST."
+      echo "Please reconfigure /etc/resolv.conf manually"
       exit 1
     fi
   done
@@ -123,19 +126,36 @@ function check_resolv_conf
 
 function backup()
 {
+  if [ -f "$FILE" ]; then
+    echo "$FILE already exists."
+    read -p "Do you want to overwrite $FILE? (y/N) "
+    if [[ $REPLY != [yY] ]] ; then
+      exit 0
+    fi
+  fi
+
   # create the backup tarball
   echo_summary "Creating backup"
   /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
   extract_dns_forwarders
+
+  mkdir -p /var/lib/crowbar/backup
+  rm -f /var/lib/crowbar/backup/barclamp-list
+  if [ -f /opt/dell/crowbar_framework/barclamps/crowbar.yml ]; then
+    for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
+      basename $i | sed "s/\.yml//g" >> /var/lib/crowbar/backup/barclamp-list
+    done
+  fi
+
+  rcchef-server stop
   rccouchdb stop
 
-  pushd / >/dev/null
   echo "Backing up to $FILE..."
-  tar -czf "$FILE" $XFILES $BFILES
-  popd >/dev/null
+  tar -C / --ignore-failed-read -czf "$FILE" $XFILES $BFILES
 
   rccouchdb start
-  rcchef-server restart
+  sleep 4
+  rcchef-server start
 }
 
 function cleanup()
@@ -153,7 +173,7 @@ function cleanup()
   killall looper_chef_client.sh
   LOGS=var/log/{crowbar,chef,couchdb,apache2}
   DEPLOYED="var/lib/chef etc/bind etc/dhcp3 etc/xinetd.d/tftp /srv/tftpboot/discovery/pxelinux.cfg/*"
-  DFILES="$(echo $BFILES | sed -e 's# root/.ssh # #')"
+  DFILES="$(echo $ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES | sed -e 's# root/.ssh # #')"
   rm -rf $DFILES $LOGS $DEPLOYED
   popd >/dev/null
 }
@@ -168,39 +188,22 @@ function purge()
   killall epmd # need to kill again after uninstall
 }
 
-function rabbitmq_get_password()
-{
-  # read the rabbitmq password for chef from the chef config files
-  RABBITPW=`grep --no-filename "^\s*amqp_pass" /etc/chef/{server,solr}.rb | sed -e "s/\s*amqp_pass \"\([^\"]\+\)\"/\1/" | sort | uniq`
-  if [ `printf "%s\n" $RABBITPW | wc -l` = 1 ] ; then
-    echo -n "$RABBITPW"
-  else
-    echo -n ""
-  fi
-}
-
-function reconfigure_rabbitmq()
-{
-  # clean reconfiguration of rabbitmq
-  ## copied from install-suse-cloud
-  rabbitmqctl delete_user chef
-
-  # get the original rabbitmq chef password
-  rabbit_chef_password=`rabbitmq_get_password`
-  # if empty create a new one
-  if [ -z "$rabbit_chef_password" ] ; then
-    rabbit_chef_password=$( dd if=/dev/urandom count=1 bs=16 2>/dev/null | base64 | tr -d / )
-    # write rabbitmq password to /etc/chef/server.rb and solr.rb
-    sed -i "s/^\s*amqp_pass .*/amqp_pass \"$rabbit_chef_password\"/" /etc/chef/{server,solr}.rb
-  fi
-
-  # create new chef user with proper password and permissions in rabbitmq
-  rabbitmqctl add_user chef "$rabbit_chef_password"
-  rabbitmqctl set_permissions -p /chef chef ".*" ".*" ".*"
-}
-
 function restore()
 {
+  if ! [ -f "$FILE" ]; then
+    echo "$FILE does not exist."
+    exit 81
+  fi
+
+  if [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
+    echo "Crowbar seems to already be installed and ready to run."
+    read -p "Do you want to overwrite the current setup? (y/N) "
+    if [[ $REPLY != [yY] ]] ; then
+      exit 0
+    fi
+    rm /opt/dell/crowbar_framework/.crowbar-installed-ok
+  fi
+
   # restore crowbar from tarball
   echo_summary "Restoring the system from backup"
 
@@ -210,7 +213,50 @@ function restore()
 
   # install cloud product (expects that the repos are present)
   zypper -n install -l -t pattern cloud_admin
-  restore_files
+
+  if ! rpm -q patterns-cloud-admin &> /dev/null; then
+    echo "patterns-cloud-admin package is not installed; please install with"
+    echo "\"zypper in -t pattern cloud_admin\" or \"zypper in patterns-cloud-admin\"."
+    exit 82
+  fi
+
+  restore_files var/lib/crowbar/backup
+
+  if [ -f /var/lib/crowbar/backup/barclamp-list ]; then
+    missing_barclamps=
+    for barclamp in $(sort -u /var/lib/crowbar/backup/barclamp-list); do
+      rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
+      test -d "/opt/dell/barclamps/$barclamp" && continue
+
+      # Try to convert _ to - in the barclamp name
+      barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
+      rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
+      test -d "/opt/dell/barclamps/${barclamp_dash}" && continue
+
+      # FIXME: in the future, it might be nicer to ask the user what to do
+      echo "Trying to install barclamp $barclamp that is required by the backup."
+      zypper -n install crowbar-barclamp-$barclamp crowbar-barclamp-${barclamp_dash}
+
+      rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
+      rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
+
+      missing_barclamps="$missing_barclamps $barclamp"
+    done
+
+    if [ -n "$missing_barclamps" ]; then
+      echo "The following barclamps were installed on the system where the backup was"
+      echo "created and are not available on this system. Please install them."
+      echo "   $missing_barclamps"
+      exit 83
+    fi
+  fi
+
+  restore_files etc/crowbar
+  restore_files $ETCFILES
+
+  # set the correct hostname
+  RESTORE_HOSTNAME=$(cat /etc/HOSTNAME)
+  hostname "${RESTORE_HOSTNAME%%.*}"
 
   # calling install-suse-cloud script
   echo "Waiting for install-suse-cloud to finish:"
@@ -226,54 +272,86 @@ function restore()
     echo -n .
   done
   if [ $n = 0 ] ; then
-    echo "Timed out waiting for chef-ready"
-    exit 83
+    echo "Timed out waiting for install-suse-cloud"
+    exit 84
   fi
   echo
 
+  rm /tmp/chef-ready
+
   # Make sure install finished correctly
   if ! [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
-    echo "Crowbar \".crowbar-installed-ok\" marker missing"
+    echo "install-suse-cloud didn't complete successfully"
     tail -n 90 /root/screenlog.0
     exit 89
   fi
 
-  # restoring files and reconfiguring services
-  rccouchdb stop
-  restore_files
-  reconfigure_rabbitmq
-  rccouchdb start
-  sleep 20 # wait for couchdb before restarting chef-server
-  rcchef-expander restart
-  rcchef-solr restart
-  rcchef-server restart
-  sleep 10
-  knife index rebuild -y
+  rcchef-client stop
   rccrowbar stop
 
-  # need to install the barclamps again in order to create the navigation.rb
-  # which is missing after this restore
-  /opt/dell/bin/barclamp_install.rb --rpm /opt/dell/barclamps/*
-  chown -R crowbar:crowbar /opt/dell/crowbar_framework/config
-  raketasks="db:migrate"
-  # only cleanup migrations if the sessions migration does not exist
-  if ! ls /opt/dell/crowbar_framework/db/migrate/ 2>/dev/null | grep -q ".*_create_sessions.rb" ; then
-    ## copied from install-suse-cloud
-    rm -rf /opt/dell/crowbar_framework/db/migrate
-    rm -f /opt/dell/crowbar_framework/db/{production.sqlite3,schema.rb}
-    raketasks="db:sessions:create $raketasks"
-  fi
-  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production rake $raketasks"
+  # Remember barclamps that we have locally, so we reinstall them later
+  reinstall_barclamps=
+  for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
+    barclamp=$(basename $i | sed "s/\.yml//g")
+    if rpm -q "crowbar-barclamp-$barclamp" &> /dev/null; then
+      echo "Will reinstall barclamp $barclamp that was not part of the backup."
+      reinstall_barclamps="$reinstall_barclamps $barclamp"
+      continue
+    fi
+
+    # Try to convert _ to - in the barclamp name
+    barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
+    if rpm -q "crowbar-barclamp-$barclamp_dash" &> /dev/null; then
+      echo "Will reinstall barclamp $barclamp that was not part of the backup."
+      reinstall_barclamps="$reinstall_barclamps $barclamp_dash"
+      continue
+    fi
+  done
+
+  # restoring files; we stop the services that this impacts before
+  for i in chef-server chef-expander chef-solr couchdb rabbitmq-server; do
+    service $i stop
+  done
+
+  # remove couchdb bits that will not be valid with restored files
+  rm -r /var/lib/couchdb/.chef_design
+
+  restore_files
+
+  # force-reset the chef AMQP password, since we restored old rabbitmq files
+  rm /etc/chef/amqp_passwd
+
+  for i in rabbitmq-server couchdb chef-solr chef-expander chef-server; do
+    service $i start
+    sleep 4
+  done
+
+  knife index rebuild -y
+
+  # Create session store database
+  rm -f /opt/dell/crowbar_framework/db/*.sqlite3
+  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:create db:migrate"
+
+  # Now reinstall barclamps (restored db might not reference everything we have
+  # in these barclamps)
+  for reinstall_barclamp in $reinstall_barclamps; do
+    /opt/dell/bin/barclamp_install.rb --rpm $reinstall_barclamp
+  done
 
   # final chef run
   chef-client
+
   chkconfig chef-client on
   rcchef-client start
   rccrowbar start
+
+  echo "Waiting 2 minutes before validating that restoration worked..."
+
   sleep 120
 
   # check if crowbar is accessible
-  if ! curl -m 59 -s --digest --user crowbar:crowbar localhost:3000 | grep -q /nodes/crowbar ; then
+  CROWBAR_KEY=$(cat /etc/crowbar.install.key)
+  if ! curl -m 59 -s --digest --user machine-install:"${CROWBAR_KEY##*:}" localhost:3000 | grep -q /nodes/crowbar ; then
     echo "Error: Could not connect to Crowbar."
     echo "       Please see /var/log/crowbar/production.log for details."
     exit 1
@@ -283,7 +361,7 @@ function restore()
 
 function help()
 {
-  echo "$0 - An example script to backup and restore crowbar"
+  echo "$0 - Utility to backup and restore Crowbar"
   echo
   echo "Usage: $0 [help|backup|restore|cleanup|purge] [<FILE>]"
   echo
@@ -296,27 +374,34 @@ function help()
   echo " purge"
   echo "     wipe all packages and config files related to crowbar"
   echo
-  echo " If <FILE> is omitted it defaults to $FILEDEF"
+  echo "If <FILE> is omitted, it defaults to $FILEDEF"
 }
 
 FILE=$(readlink -m ${2:-$FILEDEF})
-declare -a action
-action=( $@ )
-if [[ ${#action[@]} < 1 ]] ; then
-  action[0]='help'
+
+if [ $# -ne 1 -a $# -ne 2 ]; then
+  help
+  exit
 fi
 
-[ -z "$CB_BACKUP_IGNOREWARNING" ] && case "${action[0]}" in
-  help)
-  ;;
-  *)
+action=$1
+
+[ -z "$CB_BACKUP_IGNOREWARNING" ] && case "$action" in
+  backup|restore|cleanup|purge)
     echo "This script is a working documentation of the backup and restore process."
     echo "You may need to adapt it to your setup."
     read -p "Continue? (y/N) "
     if [[ $REPLY != [yY] ]] ; then
       exit 0
     fi
+    setup_log
+  ;;
+  help)
+  ;;
+  *)
+    help
+    exit 1
   ;;
 esac
 
-${action[*]}
+$action
