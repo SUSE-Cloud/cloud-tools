@@ -158,36 +158,6 @@ function backup()
   rcchef-server start
 }
 
-function cleanup()
-{
-  # stop crowbar related services and delete its config files
-  # to be used on a deployed crowbar
-  echo_summary "Cleaning up the system"
-  extract_dns_forwarders
-  restore_dns_forwarders
-  pushd / >/dev/null
-  for service in crowbar chef-{server,solr,expander,client} couchdb apache2 named dhcpd xinetd rabbitmq-server ; do
-    [ -e /etc/init.d/$service ] && /etc/init.d/$service stop
-  done
-  killall epmd # part of rabbitmq
-  killall looper_chef_client.sh
-  LOGS=var/log/{crowbar,chef,couchdb,apache2}
-  DEPLOYED="var/lib/chef etc/bind etc/dhcp3 etc/xinetd.d/tftp /srv/tftpboot/discovery/pxelinux.cfg/*"
-  DFILES="$(echo $ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES | sed -e 's# root/.ssh # #')"
-  rm -rf $DFILES $LOGS $DEPLOYED
-  popd >/dev/null
-}
-
-function purge()
-{
-  # cleanup + uninstall all crowbar related packages
-  echo_summary "Purging the system"
-  cleanup
-  zypper -n rm `rpm -qa|grep -e crowbar -e chef -e rubygem -e susecloud` couchdb createrepo erlang rabbitmq-server sleshammer yum-common bind bind-chrootenv dhcp-server tftp
-  rm -rf /opt/dell /var/log/{rabbitmq,nodes,crowbar,couchdb,chef,barclamps} /var/lib/{chef,couchdb,crowbar,dhcp,named,rabbitmq} /var/cache/chef /var/run/{chef,crowbar,named,rabbitmq} /var/chef /etc/sysconfig/{dhcpd,named,rabbitmq-server} /etc/{bind,chef,dhcp3,crowbar}
-  killall epmd # need to kill again after uninstall
-}
-
 function restore()
 {
   if ! [ -f "$FILE" ]; then
@@ -363,16 +333,12 @@ function help()
 {
   echo "$0 - Utility to backup and restore Crowbar"
   echo
-  echo "Usage: $0 [help|backup|restore|cleanup|purge] [<FILE>]"
+  echo "Usage: $0 [help|backup|restore] [<FILE>]"
   echo
   echo " backup [<FILE>]"
   echo "     create a backup tarball of admin node config data in <FILE>"
   echo " restore [<FILE>]"
   echo "     restore a backup of an admin node config from tarball <FILE>"
-  echo " cleanup"
-  echo "     stop services and delete config files related to crowbar"
-  echo " purge"
-  echo "     wipe all packages and config files related to crowbar"
   echo
   echo "If <FILE> is omitted, it defaults to $FILEDEF"
 }
@@ -387,7 +353,7 @@ fi
 action=$1
 
 [ -z "$CB_BACKUP_IGNOREWARNING" ] && case "$action" in
-  backup|restore|cleanup|purge)
+  backup|restore)
     echo "This script is a working documentation of the backup and restore process."
     echo "You may need to adapt it to your setup."
     read -p "Continue? (y/N) "
