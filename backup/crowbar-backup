@@ -298,9 +298,8 @@ function restore()
 
   knife index rebuild -y
 
-  # Create session store database
-  rm -f /opt/dell/crowbar_framework/db/*.sqlite3
-  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:create db:migrate"
+  # Makes sure that pending migrations are applied
+  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:migrate"
 
   # Now reinstall barclamps (restored db might not reference everything we have
   # in these barclamps)
