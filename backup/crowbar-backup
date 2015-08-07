@@ -38,26 +38,26 @@ LOGFILE="/var/log/crowbar/backup-restore.log"
 
 function setup_log ()
 {
-  # Add logging based on the work in suse-cloud-upgrade
-  if [ ! -d /var/log/crowbar/ ]; then
-    mkdir -p /var/log/crowbar
-  fi
+    # Add logging based on the work in suse-cloud-upgrade
+    if [ ! -d /var/log/crowbar/ ]; then
+        mkdir -p /var/log/crowbar
+    fi
 
-  #Add logging, also keep stdout
-  exec >  >(tee -a $LOGFILE)
-  exec 2> >(tee -a $LOGFILE >&2)
+    #Add logging, also keep stdout
+    exec >  >(tee -a $LOGFILE)
+    exec 2> >(tee -a $LOGFILE >&2)
 }
 
 function echo_log ()
 {
-  echo -e === "$(date '+%F %T %z'): $@"
+    echo -e === "$(date '+%F %T %z'): $@"
 }
 
 function echo_summary ()
 {
-  # Also send message with timestamp to logfile
-  echo_log $@
-  echo -e === $@
+    # Also send message with timestamp to logfile
+    echo_log $@
+    echo -e === $@
 }
 
 # files and directories to be backed up
@@ -72,7 +72,7 @@ BFILES="$ROOTFILES $CHEFFILES $CROWBARFILES $TFTPFILES $ETCFILES"
 EXCLUDEFILES="var/lib/crowbar/cache etc/chef/amqp_passwd"
 XFILES=""
 for X in $EXCLUDEFILES ; do
-  XFILES="--exclude $X $XFILES"
+    XFILES="--exclude $X $XFILES"
 done
 
 # _domainname_ of a server for a ping and DNS test
@@ -84,289 +84,289 @@ FILEDEF=backup-crowbar.tar.gz
 
 function restore_files()
 {
-  # restore all or specific files from backup tarball
-  echo_summary "Restoring from $FILE..."
-  tar -C / -xf "$FILE" $@
+    # restore all or specific files from backup tarball
+    echo_summary "Restoring from $FILE..."
+    tar -C / -xf "$FILE" $@
 }
 
 function extract_dns_forwarders()
 {
-  # save the DNS forwarders in /etc/resolv.conf.forwarders
-  echo "Extracting DNS forwarders"
-  [ -e /etc/bind/named.conf ] || return
-  cp -a /etc/resolv.conf{,.forwarders}
-  sed -i -e "/^\s*nameserver/d" /etc/resolv.conf.forwarders
-  for ns in `perl -ne 'BEGIN{$/=undef}; m/forwarders\s*{([0-9:;\[\]\.\s]+)}/; $f=$1||""; $f=~s/\s*//g; foreach $fw (split(";",$f)){print "$fw\n"}' /etc/bind/named.conf`; do
-    echo "nameserver $ns" >> /etc/resolv.conf.forwarders
-  done
+    # save the DNS forwarders in /etc/resolv.conf.forwarders
+    echo "Extracting DNS forwarders"
+    [ -e /etc/bind/named.conf ] || return
+    cp -a /etc/resolv.conf{,.forwarders}
+    sed -i -e "/^\s*nameserver/d" /etc/resolv.conf.forwarders
+    for ns in `perl -ne 'BEGIN{$/=undef}; m/forwarders\s*{([0-9:;\[\]\.\s]+)}/; $f=$1||""; $f=~s/\s*//g; foreach $fw (split(";",$f)){print "$fw\n"}' /etc/bind/named.conf`; do
+        echo "nameserver $ns" >> /etc/resolv.conf.forwarders
+    done
 }
 
 function restore_dns_forwarders()
 {
-  # restore the resolv.conf from backup resp. /etc/resolv.conf.forwarders
-  echo "Restoring DNS forwarders"
-  if [ "$1" = "frombackup" -a ! -e /etc/resolv.conf.norestore ] ; then
-    restore_files etc/resolv.conf.forwarders
-  fi
-  [ -e /etc/resolv.conf.forwarders ] && cp -a /etc/resolv.conf{.forwarders,}
+    # restore the resolv.conf from backup resp. /etc/resolv.conf.forwarders
+    echo "Restoring DNS forwarders"
+    if [ "$1" = "frombackup" -a ! -e /etc/resolv.conf.norestore ] ; then
+        restore_files etc/resolv.conf.forwarders
+    fi
+    [ -e /etc/resolv.conf.forwarders ] && cp -a /etc/resolv.conf{.forwarders,}
 }
 
 function check_resolv_conf
 {
-  # check if DNS servers are available and can resolve domain names
-  echo "Check if DNS is available and domain resolution works"
-  for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
-    if ! dig @$ns +short "$HOSTTEST" >/dev/null; then
-      echo "Error: Nameserver '$ns' can not resolve $HOSTTEST."
-      echo "Please reconfigure /etc/resolv.conf manually"
-      exit 1
-    fi
-  done
+    # check if DNS servers are available and can resolve domain names
+    echo "Check if DNS is available and domain resolution works"
+    for ns in `grep "^\s*nameserver" /etc/resolv.conf | sed -e "s/\s*nameserver \([[:digit:]\.]\+\)[^[:digit:]\.]*/\1/" ` ; do
+        if ! dig @$ns +short "$HOSTTEST" >/dev/null; then
+        echo "Error: Nameserver '$ns' can not resolve $HOSTTEST."
+        echo "Please reconfigure /etc/resolv.conf manually"
+        exit 1
+        fi
+    done
 }
 
 function backup()
 {
-  if [ -f "$FILE" ]; then
-    echo "$FILE already exists."
-    read -p "Do you want to overwrite $FILE? (y/N) "
-    if [[ $REPLY != [yY] ]] ; then
-      exit 0
+    if [ -f "$FILE" ]; then
+        echo "$FILE already exists."
+        read -p "Do you want to overwrite $FILE? (y/N) "
+        if [[ $REPLY != [yY] ]] ; then
+        exit 0
+        fi
     fi
-  fi
 
-  # create the backup tarball
-  echo_summary "Creating backup"
-  /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
-  extract_dns_forwarders
+    # create the backup tarball
+    echo_summary "Creating backup"
+    /etc/cron.daily/chef-couchdb-cleanup >/dev/null 2>&1 # to get smaller backups
+    extract_dns_forwarders
 
-  mkdir -p /var/lib/crowbar/backup
-  rm -f /var/lib/crowbar/backup/barclamp-list
-  if [ -f /opt/dell/crowbar_framework/barclamps/crowbar.yml ]; then
-    for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
-      basename $i | sed "s/\.yml//g" >> /var/lib/crowbar/backup/barclamp-list
-    done
-  fi
+    mkdir -p /var/lib/crowbar/backup
+    rm -f /var/lib/crowbar/backup/barclamp-list
+    if [ -f /opt/dell/crowbar_framework/barclamps/crowbar.yml ]; then
+        for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
+        basename $i | sed "s/\.yml//g" >> /var/lib/crowbar/backup/barclamp-list
+        done
+    fi
 
-  service chef-server stop
-  service couchdb stop
+    service chef-server stop
+    service couchdb stop
 
-  echo "Backing up to $FILE..."
-  tar -C / --ignore-failed-read -czf "$FILE" $XFILES $BFILES
+    echo "Backing up to $FILE..."
+    tar -C / --ignore-failed-read -czf "$FILE" $XFILES $BFILES
 
-  service couchdb start
-  sleep 4
-  service chef-server start
+    service couchdb start
+    sleep 4
+    service chef-server start
 }
 
 function restore()
 {
-  if ! [ -f "$FILE" ]; then
-    echo "$FILE does not exist."
-    exit 81
-  fi
-
-  if [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
-    echo "Crowbar seems to already be installed and ready to run."
-    read -p "Do you want to overwrite the current setup? (y/N) "
-    if [[ $REPLY != [yY] ]] ; then
-      exit 0
+    if ! [ -f "$FILE" ]; then
+        echo "$FILE does not exist."
+        exit 81
     fi
-    rm /opt/dell/crowbar_framework/.crowbar-installed-ok
-  fi
 
-  # restore crowbar from tarball
-  echo_summary "Restoring the system from backup"
+    if [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
+        echo "Crowbar seems to already be installed and ready to run."
+        read -p "Do you want to overwrite the current setup? (y/N) "
+        if [[ $REPLY != [yY] ]] ; then
+        exit 0
+        fi
+        rm /opt/dell/crowbar_framework/.crowbar-installed-ok
+    fi
+
+    # restore crowbar from tarball
+    echo_summary "Restoring the system from backup"
 
 
-  restore_dns_forwarders frombackup
-  check_resolv_conf
+    restore_dns_forwarders frombackup
+    check_resolv_conf
 
-  # install cloud product (expects that the repos are present)
-  zypper -n install -l -t pattern cloud_admin
+    # install cloud product (expects that the repos are present)
+    zypper -n install -l -t pattern cloud_admin
 
-  if ! rpm -q patterns-cloud-admin &> /dev/null; then
-    echo "patterns-cloud-admin package is not installed; please install with"
-    echo "\"zypper in -t pattern cloud_admin\" or \"zypper in patterns-cloud-admin\"."
-    exit 82
-  fi
+    if ! rpm -q patterns-cloud-admin &> /dev/null; then
+        echo "patterns-cloud-admin package is not installed; please install with"
+        echo "\"zypper in -t pattern cloud_admin\" or \"zypper in patterns-cloud-admin\"."
+        exit 82
+    fi
 
-  restore_files var/lib/crowbar/backup
+    restore_files var/lib/crowbar/backup
 
-  if [ -f /var/lib/crowbar/backup/barclamp-list ]; then
-    missing_barclamps=
-    for barclamp in $(sort -u /var/lib/crowbar/backup/barclamp-list); do
-      rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
-      test -d "/opt/dell/barclamps/$barclamp" && continue
+    if [ -f /var/lib/crowbar/backup/barclamp-list ]; then
+        missing_barclamps=
+        for barclamp in $(sort -u /var/lib/crowbar/backup/barclamp-list); do
+        rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
+        test -d "/opt/dell/barclamps/$barclamp" && continue
 
-      # Try to convert _ to - in the barclamp name
-      barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
-      rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
-      test -d "/opt/dell/barclamps/${barclamp_dash}" && continue
+        # Try to convert _ to - in the barclamp name
+        barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
+        rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
+        test -d "/opt/dell/barclamps/${barclamp_dash}" && continue
 
-      # FIXME: in the future, it might be nicer to ask the user what to do
-      echo "Trying to install barclamp $barclamp that is required by the backup."
-      zypper -n install crowbar-barclamp-$barclamp crowbar-barclamp-${barclamp_dash}
+        # FIXME: in the future, it might be nicer to ask the user what to do
+        echo "Trying to install barclamp $barclamp that is required by the backup."
+        zypper -n install crowbar-barclamp-$barclamp crowbar-barclamp-${barclamp_dash}
 
-      rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
-      rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
+        rpm -q "crowbar-barclamp-$barclamp" &> /dev/null && continue
+        rpm -q "crowbar-barclamp-${barclamp_dash}" &> /dev/null && continue
 
-      missing_barclamps="$missing_barclamps $barclamp"
+        missing_barclamps="$missing_barclamps $barclamp"
+        done
+
+        if [ -n "$missing_barclamps" ]; then
+        echo "The following barclamps were installed on the system where the backup was"
+        echo "created and are not available on this system. Please install them."
+        echo "   $missing_barclamps"
+        exit 83
+        fi
+    fi
+
+    restore_files etc/crowbar
+    restore_files $ETCFILES
+
+    # set the correct hostname
+    RESTORE_HOSTNAME=$(cat /etc/HOSTNAME)
+    hostname "${RESTORE_HOSTNAME%%.*}"
+
+    # calling install-suse-cloud script
+    echo "Waiting for install-suse-cloud to finish:"
+    pushd /root  > /dev/null
+    screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
+    sleep 2 # need to wait for initial deletion of chef-ready
+    popd > /dev/null
+
+    n=300
+    while [ $n -gt 0 ] && [ ! -e /tmp/chef-ready ] ; do
+        n=$(expr $n - 1)
+        sleep 5;
+        echo -n .
+    done
+    if [ $n = 0 ] ; then
+        echo "Timed out waiting for install-suse-cloud"
+        exit 84
+    fi
+    echo
+
+    rm /tmp/chef-ready
+
+    # Make sure install finished correctly
+    if ! [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
+        echo "install-suse-cloud didn't complete successfully"
+        tail -n 90 /root/screenlog.0
+        exit 89
+    fi
+
+    service chef-client stop
+    service crowbar stop
+
+    # Remember barclamps that we have locally, so we reinstall them later
+    reinstall_barclamps=
+    for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
+        barclamp=$(basename $i | sed "s/\.yml//g")
+        if rpm -q "crowbar-barclamp-$barclamp" &> /dev/null; then
+        echo "Will reinstall barclamp $barclamp that was not part of the backup."
+        reinstall_barclamps="$reinstall_barclamps $barclamp"
+        continue
+        fi
+
+        # Try to convert _ to - in the barclamp name
+        barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
+        if rpm -q "crowbar-barclamp-$barclamp_dash" &> /dev/null; then
+        echo "Will reinstall barclamp $barclamp that was not part of the backup."
+        reinstall_barclamps="$reinstall_barclamps $barclamp_dash"
+        continue
+        fi
     done
 
-    if [ -n "$missing_barclamps" ]; then
-      echo "The following barclamps were installed on the system where the backup was"
-      echo "created and are not available on this system. Please install them."
-      echo "   $missing_barclamps"
-      exit 83
+    # restoring files; we stop the services that this impacts before
+    for i in chef-server chef-expander chef-solr couchdb rabbitmq-server; do
+        service $i stop
+    done
+
+    # remove couchdb bits that will not be valid with restored files
+    rm -r /var/lib/couchdb/.chef_design
+
+    restore_files
+
+    # force-reset the chef AMQP password, since we restored old rabbitmq files
+    rm /etc/chef/amqp_passwd
+
+    for i in rabbitmq-server couchdb chef-solr chef-expander chef-server; do
+        service $i start
+        sleep 4
+    done
+
+    knife index rebuild -y
+
+    # Makes sure that pending migrations are applied
+    su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:migrate"
+
+    # Now reinstall barclamps (restored db might not reference everything we have
+    # in these barclamps)
+    for reinstall_barclamp in $reinstall_barclamps; do
+        /opt/dell/bin/barclamp_install.rb --rpm $reinstall_barclamp
+    done
+
+    # final chef run
+    chef-client
+
+    chkconfig chef-client on
+    service chef-client start
+    service crowbar start
+
+    echo "Waiting 2 minutes before validating that restoration worked..."
+
+    sleep 120
+
+    # check if crowbar is accessible
+    CROWBAR_KEY=$(cat /etc/crowbar.install.key)
+    if ! curl -m 59 -s --digest --user machine-install:"${CROWBAR_KEY##*:}" localhost:3000 | grep -q /nodes/crowbar ; then
+        echo "Error: Could not connect to Crowbar."
+        echo "       Please see /var/log/crowbar/production.log for details."
+        exit 1
     fi
-  fi
-
-  restore_files etc/crowbar
-  restore_files $ETCFILES
-
-  # set the correct hostname
-  RESTORE_HOSTNAME=$(cat /etc/HOSTNAME)
-  hostname "${RESTORE_HOSTNAME%%.*}"
-
-  # calling install-suse-cloud script
-  echo "Waiting for install-suse-cloud to finish:"
-  pushd /root  > /dev/null
-  screen -d -m -L /bin/bash -c "rm -f /tmp/chef-ready ; install-suse-cloud --verbose ; touch /tmp/chef-ready"
-  sleep 2 # need to wait for initial deletion of chef-ready
-  popd > /dev/null
-
-  n=300
-  while [ $n -gt 0 ] && [ ! -e /tmp/chef-ready ] ; do
-    n=$(expr $n - 1)
-    sleep 5;
-    echo -n .
-  done
-  if [ $n = 0 ] ; then
-    echo "Timed out waiting for install-suse-cloud"
-    exit 84
-  fi
-  echo
-
-  rm /tmp/chef-ready
-
-  # Make sure install finished correctly
-  if ! [ -e /opt/dell/crowbar_framework/.crowbar-installed-ok ]; then
-    echo "install-suse-cloud didn't complete successfully"
-    tail -n 90 /root/screenlog.0
-    exit 89
-  fi
-
-  service chef-client stop
-  service crowbar stop
-
-  # Remember barclamps that we have locally, so we reinstall them later
-  reinstall_barclamps=
-  for i in /opt/dell/crowbar_framework/barclamps/*.yml; do
-    barclamp=$(basename $i | sed "s/\.yml//g")
-    if rpm -q "crowbar-barclamp-$barclamp" &> /dev/null; then
-      echo "Will reinstall barclamp $barclamp that was not part of the backup."
-      reinstall_barclamps="$reinstall_barclamps $barclamp"
-      continue
-    fi
-
-    # Try to convert _ to - in the barclamp name
-    barclamp_dash=$(echo $barclamp | sed "s/_/-/g")
-    if rpm -q "crowbar-barclamp-$barclamp_dash" &> /dev/null; then
-      echo "Will reinstall barclamp $barclamp that was not part of the backup."
-      reinstall_barclamps="$reinstall_barclamps $barclamp_dash"
-      continue
-    fi
-  done
-
-  # restoring files; we stop the services that this impacts before
-  for i in chef-server chef-expander chef-solr couchdb rabbitmq-server; do
-    service $i stop
-  done
-
-  # remove couchdb bits that will not be valid with restored files
-  rm -r /var/lib/couchdb/.chef_design
-
-  restore_files
-
-  # force-reset the chef AMQP password, since we restored old rabbitmq files
-  rm /etc/chef/amqp_passwd
-
-  for i in rabbitmq-server couchdb chef-solr chef-expander chef-server; do
-    service $i start
-    sleep 4
-  done
-
-  knife index rebuild -y
-
-  # Makes sure that pending migrations are applied
-  su -s /bin/sh - crowbar sh -c "cd /opt/dell/crowbar_framework && RAILS_ENV=production ./bin/rake db:migrate"
-
-  # Now reinstall barclamps (restored db might not reference everything we have
-  # in these barclamps)
-  for reinstall_barclamp in $reinstall_barclamps; do
-    /opt/dell/bin/barclamp_install.rb --rpm $reinstall_barclamp
-  done
-
-  # final chef run
-  chef-client
-
-  chkconfig chef-client on
-  service chef-client start
-  service crowbar start
-
-  echo "Waiting 2 minutes before validating that restoration worked..."
-
-  sleep 120
-
-  # check if crowbar is accessible
-  CROWBAR_KEY=$(cat /etc/crowbar.install.key)
-  if ! curl -m 59 -s --digest --user machine-install:"${CROWBAR_KEY##*:}" localhost:3000 | grep -q /nodes/crowbar ; then
-    echo "Error: Could not connect to Crowbar."
-    echo "       Please see /var/log/crowbar/production.log for details."
-    exit 1
-  fi
-  echo_summary "Successfully finished restore"
+    echo_summary "Successfully finished restore"
 }
 
 function help()
 {
-  echo "$0 - Utility to backup and restore Crowbar"
-  echo
-  echo "Usage: $0 [help|backup|restore] [<FILE>]"
-  echo
-  echo " backup [<FILE>]"
-  echo "     create a backup tarball of admin node config data in <FILE>"
-  echo " restore [<FILE>]"
-  echo "     restore a backup of an admin node config from tarball <FILE>"
-  echo
-  echo "If <FILE> is omitted, it defaults to $FILEDEF"
+    echo "$0 - Utility to backup and restore Crowbar"
+    echo
+    echo "Usage: $0 [help|backup|restore] [<FILE>]"
+    echo
+    echo " backup [<FILE>]"
+    echo "     create a backup tarball of admin node config data in <FILE>"
+    echo " restore [<FILE>]"
+    echo "     restore a backup of an admin node config from tarball <FILE>"
+    echo
+    echo "If <FILE> is omitted, it defaults to $FILEDEF"
 }
 
 FILE=$(readlink -m ${2:-$FILEDEF})
 
 if [ $# -ne 1 -a $# -ne 2 ]; then
-  help
-  exit
+    help
+    exit
 fi
 
 action=$1
 
 [ -z "$CB_BACKUP_IGNOREWARNING" ] && case "$action" in
-  backup|restore)
-    echo "This script is a working documentation of the backup and restore process."
-    echo "You may need to adapt it to your setup."
-    read -p "Continue? (y/N) "
-    if [[ $REPLY != [yY] ]] ; then
-      exit 0
-    fi
-    setup_log
-  ;;
-  help)
-  ;;
-  *)
-    help
-    exit 1
-  ;;
+    backup|restore)
+        echo "This script is a working documentation of the backup and restore process."
+        echo "You may need to adapt it to your setup."
+        read -p "Continue? (y/N) "
+        if [[ $REPLY != [yY] ]] ; then
+            exit 0
+        fi
+        setup_log
+        ;;
+    help)
+        ;;
+    *)
+        help
+        exit 1
+        ;;
 esac
 
 $action
