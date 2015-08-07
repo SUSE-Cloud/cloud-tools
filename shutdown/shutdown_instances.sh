@@ -1,8 +1,8 @@
 #!/bin/bash
 # Shutdown all instances in a cloud - untested, probably not fully working
 
-if [ -f "~/.openrc" ]
-  . ~/.openrc
+if [ -f "~/.openrc" ]; then
+    . ~/.openrc
 fi
 
 for tenant_id in $(keystone tenant-list | grep -v ' service ' | tail -n +4 | head -n -1 | cut -d'|' -f2); do
