@@ -147,15 +147,15 @@ function backup()
     done
   fi
 
-  rcchef-server stop
-  rccouchdb stop
+  service chef-server stop
+  service couchdb stop
 
   echo "Backing up to $FILE..."
   tar -C / --ignore-failed-read -czf "$FILE" $XFILES $BFILES
 
-  rccouchdb start
+  service couchdb start
   sleep 4
-  rcchef-server start
+  service chef-server start
 }
 
 function restore()
@@ -256,8 +256,8 @@ function restore()
     exit 89
   fi
 
-  rcchef-client stop
-  rccrowbar stop
+  service chef-client stop
+  service crowbar stop
 
   # Remember barclamps that we have locally, so we reinstall them later
   reinstall_barclamps=
@@ -311,8 +311,8 @@ function restore()
   chef-client
 
   chkconfig chef-client on
-  rcchef-client start
-  rccrowbar start
+  service chef-client start
+  service crowbar start
 
   echo "Waiting 2 minutes before validating that restoration worked..."
 
