@@ -1,0 +1,5 @@
+#!/bin/sh
+# find the user-name of the owner of an instance-ID
+id=$1
+eval $(openstack server show $id -f shell | grep user_id)
+openstack user show $user_id
