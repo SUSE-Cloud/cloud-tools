@@ -1,0 +1,16 @@
+#!/usr/bin/perl -w
+use strict;
+our $cache="/var/cache/project-list";
+
+my $prj=shift;
+die "need project name" unless $prj;
+
+if(! -e $cache) {
+	system "openstack project list -f value > $cache";
+}
+open(F, "<", $cache) or die $!;
+while(<F>) {
+	my @a=split(" ");
+	next unless $a[1] eq $prj;
+	print "$a[0]\n";
+}
