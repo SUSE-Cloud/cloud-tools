@@ -6,7 +6,7 @@ my $prj=shift;
 die "need project name" unless $prj;
 
 if(! -e $cache) {
-	system "openstack project list -f value > $cache";
+	system "openstack --insecure project list -f value > $cache";
 }
 open(F, "<", $cache) or die $!;
 while(<F>) {
