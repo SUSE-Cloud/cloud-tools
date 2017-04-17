@@ -235,7 +235,12 @@ function restore()
     sleep 2 # need to wait for initial deletion of chef-ready
     popd > /dev/null
 
-    n=300
+    ## FIXME: With the switch to the merged crowbar repositories, installing
+    ## crowbar takes a bit longer than it did before. Until this is fixed, we
+    ## need to increase the timeout to make sure the restore process does not
+    ## fail here. Set the timeout back to 300 again after the original issue
+    ## is fixed. See also https://bugzilla.suse.com/show_bug.cgi?id=942849
+    n=1000
     while [ $n -gt 0 ] && [ ! -e /tmp/chef-ready ] ; do
         n=$(expr $n - 1)
         sleep 5;
